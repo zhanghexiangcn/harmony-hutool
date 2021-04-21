@@ -1,21 +1,21 @@
 package cn.hutool.poi.excel;
 
-import java.io.Closeable;
-import java.util.ArrayList;
-import java.util.List;
-
+import cn.hutool.core.io.IoUtil;
+import cn.hutool.core.lang.Assert;
 import cn.hutool.poi.excel.cell.CellLocation;
+import cn.hutool.poi.excel.cell.CellUtil;
+import cn.hutool.poi.excel.style.StyleUtil;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.streaming.SXSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 
-import cn.hutool.core.io.IoUtil;
-import cn.hutool.core.lang.Assert;
-import cn.hutool.poi.excel.cell.CellUtil;
-import cn.hutool.poi.excel.style.StyleUtil;
+import java.io.Closeable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Excel基础类，用于抽象ExcelWriter和ExcelReader中共用部分的对象和方法
@@ -145,7 +145,7 @@ public class ExcelBase<T extends ExcelBase<T>> implements Closeable {
 	}
 
 	/**
-	 * 获取指定坐标单元格，单元格不存在时返回<code>null</code>
+	 * 获取指定坐标单元格，单元格不存在时返回{@code null}
 	 *
 	 * @param locationRef 单元格地址标识符，例如A11，B5
 	 * @return {@link Cell}
@@ -157,7 +157,7 @@ public class ExcelBase<T extends ExcelBase<T>> implements Closeable {
 	}
 
 	/**
-	 * 获取指定坐标单元格，单元格不存在时返回<code>null</code>
+	 * 获取指定坐标单元格，单元格不存在时返回{@code null}
 	 *
 	 * @param x X坐标，从0计数，即列号
 	 * @param y Y坐标，从0计数，即行号
@@ -193,7 +193,7 @@ public class ExcelBase<T extends ExcelBase<T>> implements Closeable {
 	}
 
 	/**
-	 * 获取指定坐标单元格，如果isCreateIfNotExist为false，则在单元格不存在时返回<code>null</code>
+	 * 获取指定坐标单元格，如果isCreateIfNotExist为false，则在单元格不存在时返回{@code null}
 	 *
 	 * @param locationRef        单元格地址标识符，例如A11，B5
 	 * @param isCreateIfNotExist 单元格不存在时是否创建
@@ -206,7 +206,7 @@ public class ExcelBase<T extends ExcelBase<T>> implements Closeable {
 	}
 
 	/**
-	 * 获取指定坐标单元格，如果isCreateIfNotExist为false，则在单元格不存在时返回<code>null</code>
+	 * 获取指定坐标单元格，如果isCreateIfNotExist为false，则在单元格不存在时返回{@code null}
 	 *
 	 * @param x                  X坐标，从0计数，即列号
 	 * @param y                  Y坐标，从0计数，即行号
@@ -281,9 +281,20 @@ public class ExcelBase<T extends ExcelBase<T>> implements Closeable {
 	 */
 	public CellStyle createCellStyle(int x, int y) {
 		final Cell cell = getOrCreateCell(x, y);
-		final CellStyle cellStyle = this.workbook.createCellStyle();
+			final CellStyle cellStyle = this.workbook.createCellStyle();
 		cell.setCellStyle(cellStyle);
 		return cellStyle;
+	}
+
+	/**
+	 * 创建单元格样式
+	 *
+	 * @return {@link CellStyle}
+	 * @see Workbook#createCellStyle()
+	 * @since 5.4.0
+	 */
+	public CellStyle createCellStyle(){
+		return StyleUtil.createCellStyle(this.workbook);
 	}
 
 	/**
@@ -313,7 +324,7 @@ public class ExcelBase<T extends ExcelBase<T>> implements Closeable {
 	}
 
 	/**
-	 * 获取或创建某一行的样式，返回样式后可以设置样式内容<br>
+	 * 获取或创建某一列的样式，返回样式后可以设置样式内容<br>
 	 * 需要注意，此方法返回行样式，设置背景色在单元格设置值后会被覆盖，需要单独设置其单元格的样式。
 	 *
 	 * @param x X坐标，从0计数，即列号
@@ -326,7 +337,7 @@ public class ExcelBase<T extends ExcelBase<T>> implements Closeable {
 	}
 
 	/**
-	 * 创建某一行的样式，返回样式后可以设置样式内容
+	 * 创建某一列的样式，返回样式后可以设置样式内容
 	 *
 	 * @param x X坐标，从0计数，即列号
 	 * @return {@link CellStyle}
@@ -405,7 +416,7 @@ public class ExcelBase<T extends ExcelBase<T>> implements Closeable {
 	 * @since 4.6.2
 	 */
 	public boolean isXlsx() {
-		return this.sheet instanceof XSSFSheet;
+		return this.sheet instanceof XSSFSheet || this.sheet instanceof SXSSFSheet;
 	}
 
 	/**

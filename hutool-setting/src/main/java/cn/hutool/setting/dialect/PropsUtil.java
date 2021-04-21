@@ -19,8 +19,7 @@ public class PropsUtil {
 	/**
 	 * 配置文件缓存
 	 */
-	private static Map<String, Props> propsMap = new ConcurrentHashMap<>();
-	private static final Object lock = new Object();
+	private static final Map<String, Props> propsMap = new ConcurrentHashMap<>();
 
 	/**
 	 * 获取当前环境下的配置文件<br>
@@ -30,34 +29,24 @@ public class PropsUtil {
 	 * @return 当前环境下配置文件
 	 */
 	public static Props get(String name) {
-		Props props = propsMap.get(name);
-		if (null == props) {
-			synchronized (lock) {
-				props = propsMap.get(name);
-				if (null == props) {
-					String filePath = name;
-					String extName = FileUtil.extName(filePath);
-					if (StrUtil.isEmpty(extName)) {
-						filePath = filePath + "." + Props.EXT_NAME;
-					}
-					props = new Props(filePath);
-					propsMap.put(name, props);
-				}
+		return propsMap.computeIfAbsent(name, (filePath)->{
+			final String extName = FileUtil.extName(filePath);
+			if (StrUtil.isEmpty(extName)) {
+				filePath = filePath + "." + Props.EXT_NAME;
 			}
-		}
-		return props;
+			return new Props(filePath);
+		});
 	}
 
 	/**
 	 * 获取给定路径找到的第一个配置文件<br>
-	 * * name可以为不包括扩展名的文件名（默认.setting为结尾），也可以是文件名全称
+	 * * name可以为不包括扩展名的文件名（默认.properties为结尾），也可以是文件名全称
 	 *
-	 * @param names 文件名，如果没有扩展名，默认为.setting
+	 * @param names 文件名，如果没有扩展名，默认为.properties
 	 *
 	 * @return 当前环境下配置文件
 	 */
 	public static Props getFirstFound(String... names) {
-		Props props;
 		for (String name : names) {
 			try {
 				return get(name);
@@ -66,5 +55,15 @@ public class PropsUtil {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * 获取系统参数，例如用户在执行java命令时定义的 -Duse=hutool
+	 *
+	 * @return 系统参数Props
+	 * @since 5.5.2
+	 */
+	public static Props getSystemProps(){
+		return new Props(System.getProperties());
 	}
 }

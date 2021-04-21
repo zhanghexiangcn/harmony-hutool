@@ -1,8 +1,9 @@
 package cn.hutool.core.date;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.date.BetweenFormater.Level;
+import cn.hutool.core.date.BetweenFormatter.Level;
 import cn.hutool.core.date.format.FastDateFormat;
+import cn.hutool.core.util.RandomUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -73,7 +74,7 @@ public class DateUtilTest {
 
 	@Test
 	public void beginAndEndTest() {
-		String dateStr = "2017-03-01 22:33:23";
+		String dateStr = "2017-03-01 00:33:23";
 		Date date = DateUtil.parse(dateStr);
 
 		// 一天的开始
@@ -85,6 +86,12 @@ public class DateUtilTest {
 	}
 
 	@Test
+	public void endOfDayTest() {
+		final DateTime parse = DateUtil.parse("2020-05-31 00:00:00");
+		Assert.assertEquals("2020-05-31 23:59:59", DateUtil.endOfDay(parse).toString());
+	}
+
+	@Test
 	public void truncateTest(){
 		String dateStr2 = "2020-02-29 12:59:34";
 		Date date2 = DateUtil.parse(dateStr2);
@@ -93,7 +100,7 @@ public class DateUtilTest {
 	}
 
 	@Test
-	public void beginAndWeedTest() {
+	public void beginOfWeekTest() {
 		String dateStr = "2017-03-01 22:33:23";
 		DateTime date = DateUtil.parse(dateStr);
 		Objects.requireNonNull(date).setFirstDayOfWeek(Week.MONDAY);
@@ -115,7 +122,7 @@ public class DateUtilTest {
 	}
 
 	@Test
-	public void beginAndWeedTest2() {
+	public void beginOfWeekTest2() {
 		String beginStr = "2020-03-11";
 		DateTime date = DateUtil.parseDate(beginStr);
 		Calendar calendar = date.toCalendar();
@@ -220,9 +227,15 @@ public class DateUtilTest {
 
 	@Test
 	public void formatChineseDateTest() {
-		String formatChineseDate = DateUtil.formatChineseDate(DateUtil.parse("2018-02-24"), true);
+		String formatChineseDate = DateUtil.formatChineseDate(DateUtil.parse("2018-02-24"), true, false);
 		Assert.assertEquals("二〇一八年二月二十四日", formatChineseDate);
 	}
+
+    @Test
+    public void formatChineseDateTimeTest() {
+        String formatChineseDateTime = DateUtil.formatChineseDate(DateUtil.parse("2018-02-24 12:13:14"), true, true);
+        Assert.assertEquals("二〇一八年二月二十四日一十二时一十三分一十四秒", formatChineseDateTime);
+    }
 
 	@Test
 	public void formatBetweenTest() {
@@ -252,11 +265,11 @@ public class DateUtilTest {
 
 	@Test
 	public void currentTest() {
-		long current = DateUtil.current(false);
+		long current = DateUtil.current();
 		String currentStr = String.valueOf(current);
 		Assert.assertEquals(13, currentStr.length());
 
-		long currentNano = DateUtil.current(true);
+		long currentNano = DateUtil.current();
 		String currentNanoStr = String.valueOf(currentNano);
 		Assert.assertNotNull(currentNanoStr);
 	}
@@ -329,38 +342,46 @@ public class DateUtilTest {
 		Assert.assertEquals("20190321", ymd);
 	}
 
-	@SuppressWarnings("ConstantConditions")
 	@Test
 	public void parseTest5() {
 		// 测试时间解析
+		//noinspection ConstantConditions
 		String time = DateUtil.parse("22:12:12").toString(DatePattern.NORM_TIME_FORMAT);
 		Assert.assertEquals("22:12:12", time);
+		//noinspection ConstantConditions
 		time = DateUtil.parse("2:12:12").toString(DatePattern.NORM_TIME_FORMAT);
 		Assert.assertEquals("02:12:12", time);
+		//noinspection ConstantConditions
 		time = DateUtil.parse("2:2:12").toString(DatePattern.NORM_TIME_FORMAT);
 		Assert.assertEquals("02:02:12", time);
+		//noinspection ConstantConditions
 		time = DateUtil.parse("2:2:1").toString(DatePattern.NORM_TIME_FORMAT);
 		Assert.assertEquals("02:02:01", time);
+		//noinspection ConstantConditions
 		time = DateUtil.parse("22:2:1").toString(DatePattern.NORM_TIME_FORMAT);
 		Assert.assertEquals("22:02:01", time);
+		//noinspection ConstantConditions
 		time = DateUtil.parse("2:22:1").toString(DatePattern.NORM_TIME_FORMAT);
 		Assert.assertEquals("02:22:01", time);
 
 		// 测试两位时间解析
+		//noinspection ConstantConditions
 		time = DateUtil.parse("2:22").toString(DatePattern.NORM_TIME_FORMAT);
 		Assert.assertEquals("02:22:00", time);
+		//noinspection ConstantConditions
 		time = DateUtil.parse("12:22").toString(DatePattern.NORM_TIME_FORMAT);
 		Assert.assertEquals("12:22:00", time);
+		//noinspection ConstantConditions
 		time = DateUtil.parse("12:2").toString(DatePattern.NORM_TIME_FORMAT);
 		Assert.assertEquals("12:02:00", time);
 
 	}
 
-	@SuppressWarnings("ConstantConditions")
 	@Test
 	public void parseTest6() {
 		String str = "Tue Jun 4 16:25:15 +0800 2019";
 		DateTime dateTime = DateUtil.parse(str);
+		assert dateTime != null;
 		Assert.assertEquals("2019-06-04 16:25:15", dateTime.toString());
 	}
 
@@ -371,12 +392,20 @@ public class DateUtilTest {
 		Assert.assertEquals("2019-06-01 19:45:43", dateTime.toString());
 	}
 
-	@SuppressWarnings("ConstantConditions")
+	@Test
+	public void parseTest8() {
+		String str = "2020-06-28T02:14:13.000Z";
+		DateTime dateTime = DateUtil.parse(str);
+		assert dateTime != null;
+		Assert.assertEquals("2020-06-28 02:14:13", dateTime.toString());
+	}
+
 	@Test
 	public void parseAndOffsetTest() {
 		// 检查UTC时间偏移是否准确
 		String str = "2019-09-17T13:26:17.948Z";
 		DateTime dateTime = DateUtil.parse(str);
+		assert dateTime != null;
 		Assert.assertEquals("2019-09-17 13:26:17", dateTime.toString());
 
 		DateTime offset = DateUtil.offsetHour(dateTime, 8);
@@ -459,7 +488,6 @@ public class DateUtilTest {
 		Assert.assertEquals(dt1, dt2);
 	}
 
-	@SuppressWarnings("ConstantConditions")
 	@Test
 	public void parseUTCTest() {
 		String dateStr1 = "2018-09-13T05:34:31Z";
@@ -489,11 +517,13 @@ public class DateUtilTest {
 
 		dateStr1 = "2018-09-13T13:34:34+0800";
 		dt = DateUtil.parse(dateStr1);
+		assert dt != null;
 		dateStr = dt.toString(TimeZone.getTimeZone("GMT+8:00"));
 		Assert.assertEquals("2018-09-13 13:34:34", dateStr);
 
 		dateStr1 = "2018-09-13T13:34:35+08:00";
 		dt = DateUtil.parse(dateStr1);
+		assert dt != null;
 		dateStr = dt.toString(TimeZone.getTimeZone("GMT+8:00"));
 		Assert.assertEquals("2018-09-13 13:34:35", dateStr);
 
@@ -511,13 +541,39 @@ public class DateUtilTest {
 
 		dateStr1 = "2018-09-13T13:34:38.999+0800";
 		dt = DateUtil.parse(dateStr1);
+		assert dt != null;
 		dateStr = dt.toString(simpleDateFormat);
 		Assert.assertEquals("2018-09-13 13:34:38.999", dateStr);
 
 		dateStr1 = "2018-09-13T13:34:39.999+08:00";
 		dt = DateUtil.parse(dateStr1);
+		assert dt != null;
 		dateStr = dt.toString(simpleDateFormat);
 		Assert.assertEquals("2018-09-13 13:34:39.999", dateStr);
+
+		// 使用UTC时区
+		dateStr1 = "2018-09-13T13:34:39.99";
+		dt = DateUtil.parse(dateStr1);
+		assert dt != null;
+		dateStr = dt.toString();
+		Assert.assertEquals("2018-09-13 13:34:39", dateStr);
+	}
+
+	@Test
+	public void parseUTCTest2(){
+		// issue1503@Github
+		// 检查不同毫秒长度都可以正常匹配
+		String utcTime="2021-03-30T12:56:51.3Z";
+		DateTime parse = DateUtil.parseUTC(utcTime);
+		Assert.assertEquals("2021-03-30 12:56:51", parse.toString());
+
+		utcTime="2021-03-30T12:56:51.34Z";
+		parse = DateUtil.parseUTC(utcTime);
+		Assert.assertEquals("2021-03-30 12:56:51", parse.toString());
+
+		utcTime="2021-03-30T12:56:51.345Z";
+		parse = DateUtil.parseUTC(utcTime);
+		Assert.assertEquals("2021-03-30 12:56:51", parse.toString());
 	}
 
 	@Test
@@ -556,11 +612,26 @@ public class DateUtilTest {
 	}
 
 	@Test
+	public void parseISOTest() {
+		String dateStr = "2020-04-23T02:31:00.000Z";
+		DateTime time = DateUtil.parse(dateStr);
+		Assert.assertEquals("2020-04-23 02:31:00", Objects.requireNonNull(time).toString());
+	}
+
+	@Test
 	public void endOfYearTest() {
 		DateTime date = DateUtil.date();
 		date.setField(DateField.YEAR, 2019);
 		DateTime endOfYear = DateUtil.endOfYear(date);
 		Assert.assertEquals("2019-12-31 23:59:59", endOfYear.toString());
+	}
+
+	@Test
+	public void endOfQuarterTest() {
+		Date date = DateUtil.endOfQuarter(
+				DateUtil.parse("2020-05-31 00:00:00"));
+
+		Assert.assertEquals("2020-06-30 23:59:59", DateUtil.format(date,"yyyy-MM-dd HH:mm:ss"));
 	}
 
 	@Test
@@ -688,6 +759,13 @@ public class DateUtilTest {
 		Assert.assertEquals(18, age);
 	}
 
+	@Test(expected = IllegalArgumentException.class)
+	public void ageTest2(){
+		String d1 = "2019-02-29";
+		String d2 = "2018-02-28";
+		DateUtil.age(DateUtil.parseDate(d1), DateUtil.parseDate(d2));
+	}
+
 	@Test
 	public void isExpiredTest(){
 		DateTime startDate = DateUtil.parse("2019-12-01 17:02:30");
@@ -697,7 +775,7 @@ public class DateUtilTest {
 		boolean expired = DateUtil.isExpired(startDate, DateField.DAY_OF_YEAR, length, endDate);
 		Assert.assertTrue(expired);
 	}
-	
+
 	@Test
 	public void localDateTimeTest() {
 		// 测试字符串与LocalDateTime的互相转换
@@ -705,8 +783,8 @@ public class DateUtilTest {
 		LocalDateTime ldt = DateUtil.parseLocalDateTime(strDate);
 		String strDate1 = DateUtil.formatLocalDateTime(ldt);
 		Assert.assertEquals(strDate, strDate1);
-		
-		String strDate2 = "2019年12月01日 17:02:30.111";
+
+		String strDate2 = "2019-12-01 17:02:30.111";
 		ldt = DateUtil.parseLocalDateTime(strDate2, DatePattern.NORM_DATETIME_MS_PATTERN);
 		strDate1 = DateUtil.format(ldt, DatePattern.NORM_DATETIME_PATTERN);
 		Assert.assertEquals(strDate, strDate1);
@@ -727,5 +805,61 @@ public class DateUtilTest {
 
 		final long weekCount = DateUtil.betweenWeek(start, end, true);
 		Assert.assertEquals(30L, weekCount);
+	}
+
+	@Test
+	public void betweenDayTest() {
+		for (int i = 0; i < 1000; i++) {
+			String datr = RandomUtil.randomInt(1900, 2099) + "-01-20";
+			long betweenDay = DateUtil.betweenDay(
+					DateUtil.parseDate("1970-01-01"),
+					DateUtil.parseDate(datr), false);
+			Assert.assertEquals(Math.abs(LocalDate.parse(datr).toEpochDay()), betweenDay);
+		}
+	}
+
+	@Test
+	public void dayOfYearTest() {
+		int dayOfYear = DateUtil.dayOfYear(DateUtil.parse("2020-01-01"));
+		Assert.assertEquals(1, dayOfYear);
+		int lengthOfYear = DateUtil.lengthOfYear(2020);
+		Assert.assertEquals(366, lengthOfYear);
+	}
+
+	@SuppressWarnings("ConstantConditions")
+	@Test
+	public void parseSingleNumberTest(){
+		DateTime dateTime = DateUtil.parse("2020-5-08");
+		Assert.assertEquals("2020-05-08 00:00:00", dateTime.toString());
+		dateTime = DateUtil.parse("2020-5-8");
+		Assert.assertEquals("2020-05-08 00:00:00", dateTime.toString());
+		dateTime = DateUtil.parse("2020-05-8");
+		Assert.assertEquals("2020-05-08 00:00:00", dateTime.toString());
+
+		//datetime
+		dateTime = DateUtil.parse("2020-5-8 3:12:3");
+		Assert.assertEquals("2020-05-08 03:12:03", dateTime.toString());
+		dateTime = DateUtil.parse("2020-5-8 3:2:3");
+		Assert.assertEquals("2020-05-08 03:02:03", dateTime.toString());
+		dateTime = DateUtil.parse("2020-5-8 3:12:13");
+		Assert.assertEquals("2020-05-08 03:12:13", dateTime.toString());
+
+		dateTime = DateUtil.parse("2020-5-8 4:12:26.223");
+		Assert.assertEquals("2020-05-08 04:12:26", dateTime.toString());
+	}
+
+	@SuppressWarnings("ConstantConditions")
+	@Test
+	public void parseISO8601Test(){
+		String dt = "2020-06-03 12:32:12,333";
+		final DateTime parse = DateUtil.parse(dt);
+		Assert.assertEquals("2020-06-03 12:32:12", parse.toString());
+	}
+
+	@Test(expected = DateException.class)
+	public void parseNotFitTest(){
+		//https://github.com/looly/hutool/issues/1332
+		// 在日期格式不匹配的时候，测试是否正常报错
+		final DateTime parse = DateUtil.parse("2020-12-23", DatePattern.PURE_DATE_PATTERN);
 	}
 }

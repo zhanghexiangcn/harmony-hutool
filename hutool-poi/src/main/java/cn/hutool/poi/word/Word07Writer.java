@@ -21,14 +21,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
- * Word生成器
+ * Word docx生成器
  *
  * @author looly
  * @since 4.4.1
  */
 public class Word07Writer implements Closeable {
 
-	private XWPFDocument doc;
+	private final XWPFDocument doc;
 	/**
 	 * 目标文件
 	 */

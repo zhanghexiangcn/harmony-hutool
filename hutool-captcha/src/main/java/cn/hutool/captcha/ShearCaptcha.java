@@ -1,19 +1,19 @@
 package cn.hutool.captcha;
 
+import cn.hutool.core.img.GraphicsUtil;
+import cn.hutool.core.img.ImgUtil;
+import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.RandomUtil;
+
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
 
-import cn.hutool.core.img.GraphicsUtil;
-import cn.hutool.core.img.ImgUtil;
-import cn.hutool.core.util.ObjectUtil;
-import cn.hutool.core.util.RandomUtil;
-
 /**
  * 扭曲干扰验证码
- * 
+ *
  * @author looly
  * @since 3.2.3
  *
@@ -23,7 +23,7 @@ public class ShearCaptcha extends AbstractCaptcha {
 
 	/**
 	 * 构造
-	 * 
+	 *
 	 * @param width 图片宽
 	 * @param height 图片高
 	 */
@@ -33,7 +33,7 @@ public class ShearCaptcha extends AbstractCaptcha {
 
 	/**
 	 * 构造
-	 * 
+	 *
 	 * @param width 图片宽
 	 * @param height 图片高
 	 * @param codeCount 字符个数
@@ -44,7 +44,7 @@ public class ShearCaptcha extends AbstractCaptcha {
 
 	/**
 	 * 构造
-	 * 
+	 *
 	 * @param width 图片宽
 	 * @param height 图片高
 	 * @param codeCount 字符个数
@@ -73,7 +73,7 @@ public class ShearCaptcha extends AbstractCaptcha {
 	// ----------------------------------------------------------------------------------------------------- Private method start
 	/**
 	 * 绘制字符串
-	 * 
+	 *
 	 * @param g {@link Graphics}画笔
 	 * @param code 验证码
 	 */
@@ -87,7 +87,7 @@ public class ShearCaptcha extends AbstractCaptcha {
 
 	/**
 	 * 扭曲
-	 * 
+	 *
 	 * @param g {@link Graphics}
 	 * @param w1 w1
 	 * @param h1 h1
@@ -100,7 +100,7 @@ public class ShearCaptcha extends AbstractCaptcha {
 
 	/**
 	 * X坐标扭曲
-	 * 
+	 *
 	 * @param g {@link Graphics}
 	 * @param w1 宽
 	 * @param h1 高
@@ -110,25 +110,22 @@ public class ShearCaptcha extends AbstractCaptcha {
 
 		int period = RandomUtil.randomInt(this.width);
 
-		boolean borderGap = true;
 		int frames = 1;
 		int phase = RandomUtil.randomInt(2);
 
 		for (int i = 0; i < h1; i++) {
 			double d = (double) (period >> 1) * Math.sin((double) i / (double) period + (6.2831853071795862D * (double) phase) / (double) frames);
 			g.copyArea(0, i, w1, 1, (int) d, 0);
-			if (borderGap) {
-				g.setColor(color);
-				g.drawLine((int) d, i, 0, i);
-				g.drawLine((int) d + w1, i, w1, i);
-			}
+			g.setColor(color);
+			g.drawLine((int) d, i, 0, i);
+			g.drawLine((int) d + w1, i, w1, i);
 		}
 
 	}
 
 	/**
 	 * Y坐标扭曲
-	 * 
+	 *
 	 * @param g {@link Graphics}
 	 * @param w1 宽
 	 * @param h1 高
@@ -153,7 +150,7 @@ public class ShearCaptcha extends AbstractCaptcha {
 
 	/**
 	 * 干扰线
-	 * 
+	 *
 	 * @param g {@link Graphics}
 	 * @param x1 x1
 	 * @param y1 y1
@@ -162,6 +159,7 @@ public class ShearCaptcha extends AbstractCaptcha {
 	 * @param thickness 粗细
 	 * @param c 颜色
 	 */
+	@SuppressWarnings("SameParameterValue")
 	private void drawInterfere(Graphics g, int x1, int y1, int x2, int y2, int thickness, Color c) {
 
 		// The thick line is in fact a filled polygon

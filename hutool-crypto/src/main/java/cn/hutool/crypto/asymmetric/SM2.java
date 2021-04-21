@@ -4,15 +4,21 @@ import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.HexUtil;
 import cn.hutool.crypto.BCUtil;
 import cn.hutool.crypto.CryptoException;
+import cn.hutool.crypto.ECKeyUtil;
 import cn.hutool.crypto.SecureUtil;
 import org.bouncycastle.crypto.CipherParameters;
+import org.bouncycastle.crypto.Digest;
 import org.bouncycastle.crypto.InvalidCipherTextException;
+import org.bouncycastle.crypto.digests.SM3Digest;
 import org.bouncycastle.crypto.engines.SM2Engine;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;
 import org.bouncycastle.crypto.params.ParametersWithID;
 import org.bouncycastle.crypto.params.ParametersWithRandom;
+import org.bouncycastle.crypto.signers.DSAEncoding;
+import org.bouncycastle.crypto.signers.PlainDSAEncoding;
 import org.bouncycastle.crypto.signers.SM2Signer;
+import org.bouncycastle.crypto.signers.StandardDSAEncoding;
 
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -35,9 +41,12 @@ public class SM2 extends AbstractAsymmetricCrypto<SM2> {
 	protected SM2Engine engine;
 	protected SM2Signer signer;
 
-	private SM2Engine.Mode mode = SM2Engine.Mode.C1C3C2;
 	private ECPrivateKeyParameters privateKeyParams;
 	private ECPublicKeyParameters publicKeyParams;
+
+	private DSAEncoding encoding = StandardDSAEncoding.INSTANCE;
+	private Digest digest = new SM3Digest();
+	private SM2Engine.Mode mode = SM2Engine.Mode.C1C3C2;
 
 	// ------------------------------------------------------------------ Constructor start
 
@@ -53,8 +62,8 @@ public class SM2 extends AbstractAsymmetricCrypto<SM2> {
 	 * 私钥和公钥同时为空时生成一对新的私钥和公钥<br>
 	 * 私钥和公钥可以单独传入一个，如此则只能使用此钥匙来做加密或者解密
 	 *
-	 * @param privateKeyStr 私钥Hex或Base64表示
-	 * @param publicKeyStr  公钥Hex或Base64表示
+	 * @param privateKeyStr 私钥Hex或Base64表示，必须使用PKCS#8规范
+	 * @param publicKeyStr  公钥Hex或Base64表示，必须使用X509规范
 	 */
 	public SM2(String privateKeyStr, String publicKeyStr) {
 		this(SecureUtil.decode(privateKeyStr), SecureUtil.decode(publicKeyStr));
@@ -65,13 +74,13 @@ public class SM2 extends AbstractAsymmetricCrypto<SM2> {
 	 * 私钥和公钥同时为空时生成一对新的私钥和公钥<br>
 	 * 私钥和公钥可以单独传入一个，如此则只能使用此钥匙来做加密或者解密
 	 *
-	 * @param privateKey 私钥
-	 * @param publicKey  公钥
+	 * @param privateKey 私钥，可以使用PKCS#8、D值或PKCS#1规范
+	 * @param publicKey  公钥，可以使用X509、Q值或PKCS#1规范
 	 */
 	public SM2(byte[] privateKey, byte[] publicKey) {
-		this(//
-				SecureUtil.generatePrivateKey(ALGORITHM_SM2, privateKey), //
-				SecureUtil.generatePublicKey(ALGORITHM_SM2, publicKey)//
+		this(
+				ECKeyUtil.decodePrivateKeyParams(privateKey),
+				ECKeyUtil.decodePublicKeyParams(publicKey)
 		);
 	}
 
@@ -126,8 +135,8 @@ public class SM2 extends AbstractAsymmetricCrypto<SM2> {
 	 * 私钥和公钥同时为空时生成一对新的私钥和公钥<br>
 	 * 私钥和公钥可以单独传入一个，如此则只能使用此钥匙来做加密或者解密
 	 *
-	 * @param privateKeyParams 私钥
-	 * @param publicKeyParams  公钥
+	 * @param privateKeyParams 私钥，可以为null
+	 * @param publicKeyParams  公钥，可以为null
 	 */
 	public SM2(ECPrivateKeyParameters privateKeyParams, ECPublicKeyParameters publicKeyParams) {
 		super(ALGORITHM_SM2, null, null);
@@ -182,7 +191,6 @@ public class SM2 extends AbstractAsymmetricCrypto<SM2> {
 		if (KeyType.PublicKey != keyType) {
 			throw new IllegalArgumentException("Encrypt is only support by public key");
 		}
-		checkKey(keyType);
 		return encrypt(data, new ParametersWithRandom(getCipherParameters(keyType)));
 	}
 
@@ -229,7 +237,6 @@ public class SM2 extends AbstractAsymmetricCrypto<SM2> {
 		if (KeyType.PrivateKey != keyType) {
 			throw new IllegalArgumentException("Decrypt is only support by private key");
 		}
-		checkKey(keyType);
 		return decrypt(data, getCipherParameters(keyType));
 	}
 
@@ -267,7 +274,8 @@ public class SM2 extends AbstractAsymmetricCrypto<SM2> {
 	}
 
 	/**
-	 * 用私钥对信息生成数字签名
+	 * 用私钥对信息生成数字签名，签名格式为ASN1<br>
+	 * 	 * 在硬件签名中，返回结果为R+S，可以通过调用{@link cn.hutool.crypto.SmUtil#rsAsn1ToPlain(byte[])}方法转换之。
 	 *
 	 * @param data 加密数据
 	 * @return 签名
@@ -288,7 +296,8 @@ public class SM2 extends AbstractAsymmetricCrypto<SM2> {
 	}
 
 	/**
-	 * 用私钥对信息生成数字签名
+	 * 用私钥对信息生成数字签名，签名格式为ASN1<br>
+	 * 在硬件签名中，返回结果为R+S，可以通过调用{@link cn.hutool.crypto.SmUtil#rsAsn1ToPlain(byte[])}方法转换之。
 	 *
 	 * @param data 被签名的数据数据
 	 * @param id   可以为null，若为null，则默认withId为字节数组:"1234567812345678".getBytes()
@@ -416,17 +425,73 @@ public class SM2 extends AbstractAsymmetricCrypto<SM2> {
 	}
 
 	/**
-	 * 设置加密类型
+	 * 设置DSA signatures的编码为PlainDSAEncoding
+	 *
+	 * @return this
+	 * @since 5.3.1
+	 */
+	public SM2 usePlainEncoding() {
+		return setEncoding(PlainDSAEncoding.INSTANCE);
+	}
+
+	/**
+	 * 设置DSA signatures的编码
+	 *
+	 * @param encoding {@link DSAEncoding}实现
+	 * @return this
+	 * @since 5.3.1
+	 */
+	public SM2 setEncoding(DSAEncoding encoding) {
+		this.encoding = encoding;
+		this.signer = null;
+		return this;
+	}
+
+	/**
+	 * 设置Hash算法
+	 *
+	 * @param digest {@link Digest}实现
+	 * @return this
+	 * @since 5.3.1
+	 */
+	public SM2 setDigest(Digest digest) {
+		this.digest = digest;
+		this.engine = null;
+		this.signer = null;
+		return this;
+	}
+
+	/**
+	 * 设置SM2模式，旧版是C1C2C3，新版本是C1C3C2
 	 *
 	 * @param mode {@link SM2Engine.Mode}
 	 * @return this
 	 */
 	public SM2 setMode(SM2Engine.Mode mode) {
 		this.mode = mode;
-		if (null != this.engine) {
-			this.engine = null;
-		}
+		this.engine = null;
 		return this;
+	}
+
+	/**
+	 * 获得私钥D值（编码后的私钥）
+	 *
+	 * @return D值
+	 * @since 5.5.9
+	 */
+	public byte[] getD() {
+		return this.privateKeyParams.getD().toByteArray();
+	}
+
+	/**
+	 * 获得公钥Q值（编码后的公钥）
+	 *
+	 * @param isCompressed 是否压缩
+	 * @return Q值
+	 * @since 5.5.9
+	 */
+	public byte[] getQ(boolean isCompressed) {
+		return this.publicKeyParams.getQ().getEncoded(isCompressed);
 	}
 
 	// ------------------------------------------------------------------------------------------------------------------------- Private method start
@@ -451,34 +516,16 @@ public class SM2 extends AbstractAsymmetricCrypto<SM2> {
 	}
 
 	/**
-	 * 检查对应类型的Key是否存在
-	 *
-	 * @param keyType key类型
-	 */
-	private void checkKey(KeyType keyType) {
-		switch (keyType) {
-			case PublicKey:
-				if (null == this.publicKey) {
-					throw new NullPointerException("No public key provided");
-				}
-				break;
-			case PrivateKey:
-				if (null == this.privateKey) {
-					throw new NullPointerException("No private key provided");
-				}
-				break;
-		}
-	}
-
-	/**
 	 * 获取{@link SM2Engine}，此对象为懒加载模式
 	 *
 	 * @return {@link SM2Engine}
 	 */
 	private SM2Engine getEngine() {
 		if (null == this.engine) {
-			this.engine = new SM2Engine(this.mode);
+			Assert.notNull(this.digest, "digest must be not null !");
+			this.engine = new SM2Engine(this.digest, this.mode);
 		}
+		this.digest.reset();
 		return this.engine;
 	}
 
@@ -489,10 +536,11 @@ public class SM2 extends AbstractAsymmetricCrypto<SM2> {
 	 */
 	private SM2Signer getSigner() {
 		if (null == this.signer) {
-			this.signer = new SM2Signer();
+			Assert.notNull(this.digest, "digest must be not null !");
+			this.signer = new SM2Signer(this.encoding, this.digest);
 		}
+		this.digest.reset();
 		return this.signer;
 	}
-
 	// ------------------------------------------------------------------------------------------------------------------------- Private method end
 }

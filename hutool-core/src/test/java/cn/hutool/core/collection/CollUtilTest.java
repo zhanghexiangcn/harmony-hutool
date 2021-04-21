@@ -1,15 +1,20 @@
 package cn.hutool.core.collection;
 
 import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.lang.Console;
 import cn.hutool.core.lang.Dict;
 import cn.hutool.core.lang.Editor;
 import cn.hutool.core.lang.Filter;
 import cn.hutool.core.map.MapUtil;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -20,14 +25,53 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.SortedSet;
 
 /**
  * 集合工具类单元测试
- * 
- * @author looly
  *
+ * @author looly
  */
 public class CollUtilTest {
+
+	@Test
+	public void testPredicateContains() {
+		ArrayList<String> list = CollUtil.newArrayList("bbbbb", "aaaaa", "ccccc");
+		Assert.assertTrue(CollUtil.contains(list, s -> s.startsWith("a")));
+		Assert.assertFalse(CollUtil.contains(list, s -> s.startsWith("d")));
+	}
+
+	@Test
+	public void testPadLeft() {
+		List<String> srcList = CollUtil.newArrayList();
+		List<String> answerList = CollUtil.newArrayList("a", "b");
+		CollUtil.padLeft(srcList, 1, "b");
+		CollUtil.padLeft(srcList, 2, "a");
+		Assert.assertEquals(srcList, answerList);
+
+		srcList = CollUtil.newArrayList("a", "b");
+		answerList = CollUtil.newArrayList("a", "b");
+		CollUtil.padLeft(srcList, 2, "a");
+		Assert.assertEquals(srcList, answerList);
+
+		srcList = CollUtil.newArrayList("c");
+		answerList = CollUtil.newArrayList("a", "a", "c");
+		CollUtil.padLeft(srcList, 3, "a");
+		Assert.assertEquals(srcList, answerList);
+	}
+
+	@Test
+	public void testPadRight() {
+		List<String> srcList = CollUtil.newArrayList("a");
+		List<String> answerList = CollUtil.newArrayList("a", "b", "b", "b", "b");
+		CollUtil.padRight(srcList, 5, "b");
+		Assert.assertEquals(srcList, answerList);
+	}
+
+	@Test
+	public void isNotEmptyTest() {
+		Assert.assertFalse(CollUtil.isNotEmpty((Collection<?>) null));
+	}
 
 	@Test
 	public void newHashSetTest() {
@@ -67,8 +111,21 @@ public class CollUtilTest {
 		ArrayList<String> list1 = CollUtil.newArrayList("a", "b", "b", "c", "d", "x");
 		ArrayList<String> list2 = CollUtil.newArrayList("a", "b", "b", "b", "c", "d");
 
-		Collection<String> union = CollUtil.intersection(list1, list2);
-		Assert.assertEquals(2, CollUtil.count(union, t -> t.equals("b")));
+		Collection<String> intersection = CollUtil.intersection(list1, list2);
+		Assert.assertEquals(2, CollUtil.count(intersection, t -> t.equals("b")));
+	}
+
+	@Test
+	public void intersectionDistinctTest() {
+		ArrayList<String> list1 = CollUtil.newArrayList("a", "b", "b", "c", "d", "x");
+		ArrayList<String> list2 = CollUtil.newArrayList("a", "b", "b", "b", "c", "d");
+		ArrayList<String> list3 = CollUtil.newArrayList();
+
+		Collection<String> intersectionDistinct = CollUtil.intersectionDistinct(list1, list2);
+		Assert.assertEquals(CollUtil.newLinkedHashSet("a", "b", "c", "d"), intersectionDistinct);
+
+		Collection<String> intersectionDistinct2 = CollUtil.intersectionDistinct(list1, list2, list3);
+		Assert.assertTrue(intersectionDistinct2.isEmpty());
 	}
 
 	@Test
@@ -122,7 +179,7 @@ public class CollUtilTest {
 	}
 
 	@Test
-	public void subtractTest(){
+	public void subtractTest() {
 		List<String> list1 = CollUtil.newArrayList("a", "b", "b", "c", "d", "x");
 		List<String> list2 = CollUtil.newArrayList("a", "b", "b", "b", "c", "d", "x2");
 		final Collection<String> subtract = CollUtil.subtract(list1, list2);
@@ -206,7 +263,7 @@ public class CollUtilTest {
 		Assert.assertSame(list, filtered);
 		Assert.assertEquals(CollUtil.newArrayList("b", "c"), filtered);
 	}
-	
+
 	@Test
 	public void removeNullTest() {
 		ArrayList<String> list = CollUtil.newArrayList("a", "b", "c", null, "", "  ");
@@ -217,7 +274,7 @@ public class CollUtilTest {
 		Assert.assertSame(list, filtered);
 		Assert.assertEquals(CollUtil.newArrayList("a", "b", "c", "", "  "), filtered);
 	}
-	
+
 	@Test
 	public void removeEmptyTest() {
 		ArrayList<String> list = CollUtil.newArrayList("a", "b", "c", null, "", "  ");
@@ -228,13 +285,13 @@ public class CollUtilTest {
 		Assert.assertSame(list, filtered);
 		Assert.assertEquals(CollUtil.newArrayList("a", "b", "c", "  "), filtered);
 	}
-	
+
 	@Test
 	public void removeBlankTest() {
 		ArrayList<String> list = CollUtil.newArrayList("a", "b", "c", null, "", "  ");
-		
+
 		ArrayList<String> filtered = CollUtil.removeBlank(list);
-		
+
 		// 原地过滤
 		Assert.assertSame(list, filtered);
 		Assert.assertEquals(CollUtil.newArrayList("a", "b", "c"), filtered);
@@ -277,6 +334,46 @@ public class CollUtilTest {
 		Assert.assertEquals("张三", list.get(2).getName());
 	}
 
+	@Test
+	public void fieldValueMapTest() {
+		List<TestBean> list = CollUtil.newArrayList(new TestBean("张三", 12, DateUtil.parse("2018-05-01")), //
+				new TestBean("李四", 13, DateUtil.parse("2018-03-01")), //
+				new TestBean("王五", 12, DateUtil.parse("2018-04-01"))//
+		);
+
+		final Map<String, TestBean> map = CollUtil.fieldValueMap(list, "name");
+		Assert.assertEquals("李四", map.get("李四").getName());
+		Assert.assertEquals("王五", map.get("王五").getName());
+		Assert.assertEquals("张三", map.get("张三").getName());
+	}
+
+	@Test
+	public void fieldValueAsMapTest() {
+		List<TestBean> list = CollUtil.newArrayList(new TestBean("张三", 12, DateUtil.parse("2018-05-01")), //
+				new TestBean("李四", 13, DateUtil.parse("2018-03-01")), //
+				new TestBean("王五", 14, DateUtil.parse("2018-04-01"))//
+		);
+
+		final Map<String, Integer> map = CollUtil.fieldValueAsMap(list, "name", "age");
+		Assert.assertEquals(new Integer(12), map.get("张三"));
+		Assert.assertEquals(new Integer(13), map.get("李四"));
+		Assert.assertEquals(new Integer(14), map.get("王五"));
+	}
+
+	@Test
+	public void emptyTest() {
+		final SortedSet<String> emptySortedSet = CollUtil.empty(SortedSet.class);
+		Assert.assertEquals(Collections.emptySortedSet(), emptySortedSet);
+
+		final Set<String> emptySet = CollUtil.empty(Set.class);
+		Assert.assertEquals(Collections.emptySet(), emptySet);
+
+		final List<String> emptyList = CollUtil.empty(List.class);
+		Assert.assertEquals(Collections.emptyList(), emptyList);
+	}
+
+	@Data
+	@AllArgsConstructor
 	public static class TestBean {
 		private String name;
 		private int age;
@@ -285,41 +382,6 @@ public class CollUtilTest {
 		public TestBean(String name, int age) {
 			this.name = name;
 			this.age = age;
-		}
-
-		public TestBean(String name, int age, Date createTime) {
-			this.name = name;
-			this.age = age;
-			this.createTime = createTime;
-		}
-
-		public String getName() {
-			return name;
-		}
-
-		public void setName(String name) {
-			this.name = name;
-		}
-
-		public int getAge() {
-			return age;
-		}
-
-		public void setAge(int age) {
-			this.age = age;
-		}
-
-		public Date getCreateTime() {
-			return createTime;
-		}
-
-		public void setCreateTime(Date createTime) {
-			this.createTime = createTime;
-		}
-
-		@Override
-		public String toString() {
-			return "TestBeans [name=" + name + ", age=" + age + "]";
 		}
 	}
 
@@ -574,8 +636,11 @@ public class CollUtilTest {
 	public void containsAllTest() {
 		ArrayList<Integer> list1 = CollUtil.newArrayList(1, 2, 3, 4, 5);
 		ArrayList<Integer> list2 = CollUtil.newArrayList(5, 3, 1);
-
 		Assert.assertTrue(CollUtil.containsAll(list1, list2));
+
+		ArrayList<Integer> list3 = CollUtil.newArrayList(1);
+		ArrayList<Integer> list4 = CollUtil.newArrayList();
+		Assert.assertTrue(CollUtil.containsAll(list3, list4));
 	}
 
 	@Test
@@ -599,5 +664,46 @@ public class CollUtilTest {
 		Assert.assertEquals(2, map.get("b").intValue());
 		Assert.assertEquals(3, map.get("c").intValue());
 		Assert.assertEquals(4, map.get("d").intValue());
+	}
+
+	@Test
+	public void toMapTest() {
+		Collection<String> keys = CollUtil.newArrayList("a", "b", "c", "d");
+		final Map<String, String> map = CollUtil.toMap(keys, new HashMap<>(), (value) -> "key" + value);
+		Assert.assertEquals("a", map.get("keya"));
+		Assert.assertEquals("b", map.get("keyb"));
+		Assert.assertEquals("c", map.get("keyc"));
+		Assert.assertEquals("d", map.get("keyd"));
+	}
+
+	@Test
+	public void countMapTest() {
+		ArrayList<String> list = CollUtil.newArrayList("a", "b", "c", "c", "a", "b", "d");
+		Map<String, Integer> countMap = CollUtil.countMap(list);
+
+		Assert.assertEquals(Integer.valueOf(2), countMap.get("a"));
+		Assert.assertEquals(Integer.valueOf(2), countMap.get("b"));
+		Assert.assertEquals(Integer.valueOf(2), countMap.get("c"));
+		Assert.assertEquals(Integer.valueOf(1), countMap.get("d"));
+	}
+
+	@Test
+	public void pageTest(){
+		List<Dict> objects = CollUtil.newArrayList();
+		for (int i = 0; i < 10; i++) {
+			objects.add(Dict.create().set("name", "姓名：" + i));
+		}
+
+		Assert.assertEquals(0, CollUtil.page(3, 5, objects).size());
+	}
+
+	@Test
+	public void subtractToListTest(){
+		List<Long> list1 = Arrays.asList(1L, 2L, 3L);
+		List<Long> list2 = Arrays.asList(2L, 3L);
+
+		List<Long> result = CollUtil.subtractToList(list1, list2);
+		Assert.assertEquals(1, result.size());
+		Assert.assertEquals(1L, result.get(0), 1);
 	}
 }

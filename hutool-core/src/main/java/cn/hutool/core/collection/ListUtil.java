@@ -2,7 +2,9 @@ package cn.hutool.core.collection;
 
 import cn.hutool.core.comparator.PinyinComparator;
 import cn.hutool.core.comparator.PropertyComparator;
+import cn.hutool.core.convert.Convert;
 import cn.hutool.core.lang.Editor;
+import cn.hutool.core.lang.Matcher;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.PageUtil;
@@ -148,6 +150,23 @@ public class ListUtil {
 	}
 
 	/**
+	 * 数组转为一个不可变List<br>
+	 * 类似于Java9中的List.of
+	 *
+	 * @param ts  对象
+	 * @param <T> 对象类型
+	 * @return 不可修改List
+	 * @since 5.4.3
+	 */
+	@SafeVarargs
+	public static <T> List<T> of(T... ts) {
+		if (ArrayUtil.isEmpty(ts)) {
+			return Collections.emptyList();
+		}
+		return Collections.unmodifiableList(toList(ts));
+	}
+
+	/**
 	 * 新建一个CopyOnWriteArrayList
 	 *
 	 * @param <T>        集合元素类型
@@ -212,7 +231,7 @@ public class ListUtil {
 	 * 对指定List分页取值
 	 *
 	 * @param <T>      集合元素类型
-	 * @param pageNo   页码，从0开始计数，0表示第一页
+	 * @param pageNo   页码，第一页的页码取决于{@link PageUtil#getFirstPageNo()}，默认0
 	 * @param pageSize 每页的条目数
 	 * @param list     列表
 	 * @return 分页后的段落内容
@@ -226,18 +245,28 @@ public class ListUtil {
 		int resultSize = list.size();
 		// 每页条目数大于总数直接返回所有
 		if (resultSize <= pageSize) {
-			if (pageNo < 1) {
-				return Collections.unmodifiableList(list);
+			if (pageNo < (PageUtil.getFirstPageNo() + 1)) {
+				return unmodifiable(list);
 			} else {
 				// 越界直接返回空
 				return new ArrayList<>(0);
 			}
 		}
+		// 相乘可能会导致越界 临时用long
+		if (((long) (pageNo - PageUtil.getFirstPageNo()) * pageSize) > resultSize) {
+			// 越界直接返回空
+			return new ArrayList<>(0);
+		}
+
 		final int[] startEnd = PageUtil.transToStartEnd(pageNo, pageSize);
 		if (startEnd[1] > resultSize) {
 			startEnd[1] = resultSize;
+			if (startEnd[0] > startEnd[1]) {
+				return new ArrayList<>(0);
+			}
 		}
-		return list.subList(startEnd[0], startEnd[1]);
+
+		return sub(list, startEnd[0], startEnd[1]);
 	}
 
 	/**
@@ -337,7 +366,8 @@ public class ListUtil {
 	}
 
 	/**
-	 * 截取集合的部分
+	 * 截取集合的部分<br>
+	 * 此方法与{@link List#subList(int, int)} 不同在于子列表是新的副本，操作子列表不会影响原列表。
 	 *
 	 * @param <T>   集合元素类型
 	 * @param list  被截取的数组
@@ -378,8 +408,8 @@ public class ListUtil {
 			end = size;
 		}
 
-		if (step <= 1) {
-			return list.subList(start, end);
+		if (step < 1) {
+			step = 1;
 		}
 
 		final List<T> result = new ArrayList<>();
@@ -418,5 +448,85 @@ public class ListUtil {
 			}
 		}
 		return list2;
+	}
+
+	/**
+	 * 获取匹配规则定义中匹配到元素的所有位置
+	 *
+	 * @param <T>     元素类型
+	 * @param list    列表
+	 * @param matcher 匹配器，为空则全部匹配
+	 * @return 位置数组
+	 * @since 5.2.5
+	 */
+	public static <T> int[] indexOfAll(List<T> list, Matcher<T> matcher) {
+		final List<Integer> indexList = new ArrayList<>();
+		if (null != list) {
+			int index = 0;
+			for (T t : list) {
+				if (null == matcher || matcher.match(t)) {
+					indexList.add(index);
+				}
+				index++;
+			}
+		}
+		return Convert.convert(int[].class, indexList);
+	}
+
+	/**
+	 * 将对应List转换为不可修改的List
+	 *
+	 * @param list List
+	 * @param <T>  元素类型
+	 * @return 不可修改List
+	 * @since 5.2.6
+	 */
+	public static <T> List<T> unmodifiable(List<T> list) {
+		if (null == list) {
+			return null;
+		}
+		return Collections.unmodifiableList(list);
+	}
+
+	/**
+	 * 获取一个空List
+	 *
+	 * @param <T> 元素类型
+	 * @return 空的List
+	 * @since 5.2.6
+	 */
+	public static <T> List<T> empty() {
+		return Collections.emptyList();
+	}
+
+	/**
+	 * 对集合按照指定长度分段，每一个段为单独的集合，返回这个集合的列表
+	 *
+	 * <p>
+	 * 需要特别注意的是，此方法调用{@link List#subList(int, int)}切分List，
+	 * 此方法返回的是原List的视图，也就是说原List有变更，切分后的结果也会变更。
+	 * </p>
+	 *
+	 * @param <T>  集合元素类型
+	 * @param list 列表
+	 * @param size 每个段的长度
+	 * @return 分段列表
+	 * @since 5.4.5
+	 */
+	public static <T> List<List<T>> split(List<T> list, int size) {
+		if (CollUtil.isEmpty(list)) {
+			return Collections.emptyList();
+		}
+
+		final int listSize = list.size();
+		final List<List<T>> result = new ArrayList<>(listSize / size + 1);
+		int offset = 0;
+		for (int toIdx = size; toIdx <= listSize; offset = toIdx, toIdx += size) {
+			result.add(list.subList(offset, toIdx));
+		}
+		if (offset < listSize) {
+			result.add(list.subList(offset, listSize));
+		}
+		return result;
 	}
 }

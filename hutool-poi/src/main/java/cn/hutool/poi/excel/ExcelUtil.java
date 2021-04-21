@@ -10,15 +10,15 @@ import cn.hutool.poi.PoiChecker;
 import cn.hutool.poi.excel.cell.CellLocation;
 import cn.hutool.poi.excel.sax.Excel03SaxReader;
 import cn.hutool.poi.excel.sax.Excel07SaxReader;
+import cn.hutool.poi.excel.sax.ExcelSaxReader;
+import cn.hutool.poi.excel.sax.ExcelSaxUtil;
 import cn.hutool.poi.excel.sax.handler.RowHandler;
 
-import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.InputStream;
-import java.io.OutputStream;
 
 /**
- * Excel工具类
+ * Excel工具类,不建议直接使用index直接操作sheet，在wps/excel中sheet显示顺序与index无关，还有隐藏sheet
  * 
  * @author Looly
  *
@@ -30,67 +30,94 @@ public class ExcelUtil {
 	 * 通过Sax方式读取Excel，同时支持03和07格式
 	 * 
 	 * @param path Excel文件路径
-	 * @param sheetIndex sheet序号
+	 * @param rid sheet rid，-1表示全部Sheet, 0表示第一个Sheet
 	 * @param rowHandler 行处理器
 	 * @since 3.2.0
 	 */
-	public static void readBySax(String path, int sheetIndex, RowHandler rowHandler) {
-		BufferedInputStream in = null;
-		try {
-			in = FileUtil.getInputStream(path);
-			readBySax(in, sheetIndex, rowHandler);
-		} finally {
-			IoUtil.close(in);
-		}
+	public static void readBySax(String path, int rid, RowHandler rowHandler) {
+		readBySax(FileUtil.file(path), rid, rowHandler);
+	}
+
+	/**
+	 * 通过Sax方式读取Excel，同时支持03和07格式
+	 *
+	 * @param path Excel文件路径
+	 * @param idOrRid Excel中的sheet id或者rid编号，rid必须加rId前缀，例如rId1，如果为-1处理所有编号的sheet
+	 * @param rowHandler 行处理器
+	 * @since 5.4.4
+	 */
+	public static void readBySax(String path, String idOrRid, RowHandler rowHandler) {
+		readBySax(FileUtil.file(path), idOrRid, rowHandler);
 	}
 
 	/**
 	 * 通过Sax方式读取Excel，同时支持03和07格式
 	 * 
 	 * @param file Excel文件
-	 * @param sheetIndex sheet序号
+	 * @param rid sheet rid，-1表示全部Sheet, 0表示第一个Sheet
 	 * @param rowHandler 行处理器
 	 * @since 3.2.0
 	 */
-	public static void readBySax(File file, int sheetIndex, RowHandler rowHandler) {
-		BufferedInputStream in = null;
-		try {
-			in = FileUtil.getInputStream(file);
-			readBySax(in, sheetIndex, rowHandler);
-		} finally {
-			IoUtil.close(in);
-		}
+	public static void readBySax(File file, int rid, RowHandler rowHandler) {
+		final ExcelSaxReader<?> reader = ExcelSaxUtil.createSaxReader(ExcelFileUtil.isXlsx(file), rowHandler);
+		reader.read(file, rid);
+	}
+
+	/**
+	 * 通过Sax方式读取Excel，同时支持03和07格式
+	 *
+	 * @param file Excel文件
+	 * @param idOrRid Excel中的sheet id或者rid编号，rid必须加rId前缀，例如rId1，如果为-1处理所有编号的sheet
+	 * @param rowHandler 行处理器
+	 * @since 5.4.4
+	 */
+	public static void readBySax(File file, String idOrRid, RowHandler rowHandler) {
+		final ExcelSaxReader<?> reader = ExcelSaxUtil.createSaxReader(ExcelFileUtil.isXlsx(file), rowHandler);
+		reader.read(file, idOrRid);
 	}
 
 	/**
 	 * 通过Sax方式读取Excel，同时支持03和07格式
 	 * 
 	 * @param in Excel流
-	 * @param sheetIndex sheet序号
+	 * @param rid sheet rid，-1表示全部Sheet, 0表示第一个Sheet
 	 * @param rowHandler 行处理器
 	 * @since 3.2.0
 	 */
-	public static void readBySax(InputStream in, int sheetIndex, RowHandler rowHandler) {
+	public static void readBySax(InputStream in, int rid, RowHandler rowHandler) {
 		in = IoUtil.toMarkSupportStream(in);
-		if (ExcelFileUtil.isXlsx(in)) {
-			read07BySax(in, sheetIndex, rowHandler);
-		} else {
-			read03BySax(in, sheetIndex, rowHandler);
-		}
+		final ExcelSaxReader<?> reader = ExcelSaxUtil.createSaxReader(ExcelFileUtil.isXlsx(in), rowHandler);
+		reader.read(in, rid);
+	}
+
+	/**
+	 * 通过Sax方式读取Excel，同时支持03和07格式
+	 *
+	 * @param in Excel流
+	 * @param idOrRid Excel中的sheet id或者rid编号，rid必须加rId前缀，例如rId1，如果为-1处理所有编号的sheet
+	 * @param rowHandler 行处理器
+	 * @since 5.4.4
+	 */
+	public static void readBySax(InputStream in, String idOrRid, RowHandler rowHandler) {
+		in = IoUtil.toMarkSupportStream(in);
+		final ExcelSaxReader<?> reader = ExcelSaxUtil.createSaxReader(ExcelFileUtil.isXlsx(in), rowHandler);
+		reader.read(in, idOrRid);
 	}
 
 	/**
 	 * Sax方式读取Excel07
 	 * 
 	 * @param in 输入流
-	 * @param sheetIndex Sheet索引，-1表示全部Sheet, 0表示第一个Sheet
+	 * @param rid Sheet rid，-1表示全部Sheet, 0表示第一个Sheet
 	 * @param rowHandler 行处理器
 	 * @return {@link Excel07SaxReader}
 	 * @since 3.2.0
+	 * @deprecated 请使用 {@link #readBySax(InputStream, int, RowHandler)}
 	 */
-	public static Excel07SaxReader read07BySax(InputStream in, int sheetIndex, RowHandler rowHandler) {
+	@Deprecated
+	public static Excel07SaxReader read07BySax(InputStream in, int rid, RowHandler rowHandler) {
 		try {
-			return new Excel07SaxReader(rowHandler).read(in, sheetIndex);
+			return new Excel07SaxReader(rowHandler).read(in, rid);
 		} catch (NoClassDefFoundError e) {
 			throw new DependencyException(ObjectUtil.defaultIfNull(e.getCause(), e), PoiChecker.NO_POI_ERROR_MSG);
 		}
@@ -100,14 +127,16 @@ public class ExcelUtil {
 	 * Sax方式读取Excel07
 	 * 
 	 * @param file 文件
-	 * @param sheetIndex Sheet索引，-1表示全部Sheet, 0表示第一个Sheet
+	 * @param rid Sheet rid，-1表示全部Sheet, 0表示第一个Sheet
 	 * @param rowHandler 行处理器
 	 * @return {@link Excel07SaxReader}
 	 * @since 3.2.0
+	 * @deprecated 请使用 {@link #readBySax(File, int, RowHandler)}
 	 */
-	public static Excel07SaxReader read07BySax(File file, int sheetIndex, RowHandler rowHandler) {
+	@Deprecated
+	public static Excel07SaxReader read07BySax(File file, int rid, RowHandler rowHandler) {
 		try {
-			return new Excel07SaxReader(rowHandler).read(file, sheetIndex);
+			return new Excel07SaxReader(rowHandler).read(file, rid);
 		} catch (NoClassDefFoundError e) {
 			throw new DependencyException(ObjectUtil.defaultIfNull(e.getCause(), e), PoiChecker.NO_POI_ERROR_MSG);
 		}
@@ -117,14 +146,16 @@ public class ExcelUtil {
 	 * Sax方式读取Excel07
 	 * 
 	 * @param path 路径
-	 * @param sheetIndex Sheet索引，-1表示全部Sheet, 0表示第一个Sheet
+	 * @param rid Sheet rid，-1表示全部Sheet, 0表示第一个Sheet
 	 * @param rowHandler 行处理器
 	 * @return {@link Excel07SaxReader}
 	 * @since 3.2.0
+	 * @deprecated 请使用 {@link #readBySax(String, int, RowHandler)}
 	 */
-	public static Excel07SaxReader read07BySax(String path, int sheetIndex, RowHandler rowHandler) {
+	@Deprecated
+	public static Excel07SaxReader read07BySax(String path, int rid, RowHandler rowHandler) {
 		try {
-			return new Excel07SaxReader(rowHandler).read(path, sheetIndex);
+			return new Excel07SaxReader(rowHandler).read(path, rid);
 		} catch (NoClassDefFoundError e) {
 			throw new DependencyException(ObjectUtil.defaultIfNull(e.getCause(), e), PoiChecker.NO_POI_ERROR_MSG);
 		}
@@ -136,9 +167,11 @@ public class ExcelUtil {
 	 * @param in 输入流
 	 * @param sheetIndex Sheet索引，-1表示全部Sheet, 0表示第一个Sheet
 	 * @param rowHandler 行处理器
-	 * @return {@link Excel07SaxReader}
+	 * @return {@link Excel03SaxReader}
 	 * @since 3.2.0
+	 * @deprecated 请使用 {@link #readBySax(InputStream, int, RowHandler)}
 	 */
+	@Deprecated
 	public static Excel03SaxReader read03BySax(InputStream in, int sheetIndex, RowHandler rowHandler) {
 		try {
 			return new Excel03SaxReader(rowHandler).read(in, sheetIndex);
@@ -155,7 +188,9 @@ public class ExcelUtil {
 	 * @param rowHandler 行处理器
 	 * @return {@link Excel03SaxReader}
 	 * @since 3.2.0
+	 * @deprecated 请使用 {@link #readBySax(File, int, RowHandler)}
 	 */
+	@Deprecated
 	public static Excel03SaxReader read03BySax(File file, int sheetIndex, RowHandler rowHandler) {
 		try {
 			return new Excel03SaxReader(rowHandler).read(file, sheetIndex);
@@ -172,7 +207,9 @@ public class ExcelUtil {
 	 * @param rowHandler 行处理器
 	 * @return {@link Excel03SaxReader}
 	 * @since 3.2.0
+	 * @deprecated 请使用 {@link #readBySax(String, int, RowHandler)}
 	 */
+	@Deprecated
 	public static Excel03SaxReader read03BySax(String path, int sheetIndex, RowHandler rowHandler) {
 		try {
 			return new Excel03SaxReader(rowHandler).read(path, sheetIndex);
@@ -290,7 +327,7 @@ public class ExcelUtil {
 	 */
 	public static ExcelReader getReader(InputStream bookStream, int sheetIndex) {
 		try {
-			return new ExcelReader(bookStream, sheetIndex, true);
+			return new ExcelReader(bookStream, sheetIndex);
 		} catch (NoClassDefFoundError e) {
 			throw new DependencyException(ObjectUtil.defaultIfNull(e.getCause(), e), PoiChecker.NO_POI_ERROR_MSG);
 		}
@@ -304,10 +341,12 @@ public class ExcelUtil {
 	 * @param closeAfterRead 读取结束是否关闭流
 	 * @return {@link ExcelReader}
 	 * @since 4.0.3
+	 * @deprecated 使用完毕无论是否closeAfterRead，poi会关闭流，此参数无意义。
 	 */
+	@Deprecated
 	public static ExcelReader getReader(InputStream bookStream, int sheetIndex, boolean closeAfterRead) {
 		try {
-			return new ExcelReader(bookStream, sheetIndex, closeAfterRead);
+			return new ExcelReader(bookStream, sheetIndex);
 		} catch (NoClassDefFoundError e) {
 			throw new DependencyException(ObjectUtil.defaultIfNull(e.getCause(), e), PoiChecker.NO_POI_ERROR_MSG);
 		}
@@ -323,7 +362,7 @@ public class ExcelUtil {
 	 */
 	public static ExcelReader getReader(InputStream bookStream, String sheetName) {
 		try {
-			return new ExcelReader(bookStream, sheetName, true);
+			return new ExcelReader(bookStream, sheetName);
 		} catch (NoClassDefFoundError e) {
 			throw new DependencyException(ObjectUtil.defaultIfNull(e.getCause(), e), PoiChecker.NO_POI_ERROR_MSG);
 		}
@@ -336,10 +375,12 @@ public class ExcelUtil {
 	 * @param sheetName sheet名，第一个默认是sheet1
 	 * @param closeAfterRead 读取结束是否关闭流
 	 * @return {@link ExcelReader}
+	 * @deprecated 使用完毕无论是否closeAfterRead，poi会关闭流，此参数无意义。
 	 */
+	@Deprecated
 	public static ExcelReader getReader(InputStream bookStream, String sheetName, boolean closeAfterRead) {
 		try {
-			return new ExcelReader(bookStream, sheetName, closeAfterRead);
+			return new ExcelReader(bookStream, sheetName);
 		} catch (NoClassDefFoundError e) {
 			throw new DependencyException(ObjectUtil.defaultIfNull(e.getCause(), e), PoiChecker.NO_POI_ERROR_MSG);
 		}
@@ -348,7 +389,7 @@ public class ExcelUtil {
 	// ------------------------------------------------------------------------------------------------ getWriter
 	/**
 	 * 获得{@link ExcelWriter}，默认写出到第一个sheet<br>
-	 * 不传入写出的Excel文件路径，只能调用{@link ExcelWriter#flush(OutputStream)}方法写出到流<br>
+	 * 不传入写出的Excel文件路径，只能调用ExcelWriter#flush(OutputStream)方法写出到流<br>
 	 * 若写出到文件，还需调用{@link ExcelWriter#setDestFile(File)}方法自定义写出的文件，然后调用{@link ExcelWriter#flush()}方法写出到文件
 	 * 
 	 * @return {@link ExcelWriter}
@@ -364,7 +405,7 @@ public class ExcelUtil {
 
 	/**
 	 * 获得{@link ExcelWriter}，默认写出到第一个sheet<br>
-	 * 不传入写出的Excel文件路径，只能调用{@link ExcelWriter#flush(OutputStream)}方法写出到流<br>
+	 * 不传入写出的Excel文件路径，只能调用ExcelWriter#flush(OutputStream)方法写出到流<br>
 	 * 若写出到文件，还需调用{@link ExcelWriter#setDestFile(File)}方法自定义写出的文件，然后调用{@link ExcelWriter#flush()}方法写出到文件
 	 * 
 	 * @param isXlsx 是否为xlsx格式
@@ -455,7 +496,7 @@ public class ExcelUtil {
 	// ------------------------------------------------------------------------------------------------ getBigWriter
 	/**
 	 * 获得{@link BigExcelWriter}，默认写出到第一个sheet<br>
-	 * 不传入写出的Excel文件路径，只能调用{@link BigExcelWriter#flush(OutputStream)}方法写出到流<br>
+	 * 不传入写出的Excel文件路径，只能调用ExcelWriter#flush(OutputStream)方法写出到流<br>
 	 * 若写出到文件，还需调用{@link BigExcelWriter#setDestFile(File)}方法自定义写出的文件，然后调用{@link BigExcelWriter#flush()}方法写出到文件
 	 * 
 	 * @return {@link BigExcelWriter}
@@ -471,7 +512,7 @@ public class ExcelUtil {
 
 	/**
 	 * 获得{@link BigExcelWriter}，默认写出到第一个sheet<br>
-	 * 不传入写出的Excel文件路径，只能调用{@link BigExcelWriter#flush(OutputStream)}方法写出到流<br>
+	 * 不传入写出的Excel文件路径，只能调用ExcelWriter#flush(OutputStream)方法写出到流<br>
 	 * 若写出到文件，还需调用{@link BigExcelWriter#setDestFile(File)}方法自定义写出的文件，然后调用{@link BigExcelWriter#flush()}方法写出到文件
 	 * 
 	 * @param rowAccessWindowSize 在内存中的行数

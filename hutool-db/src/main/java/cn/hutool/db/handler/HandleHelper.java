@@ -1,7 +1,7 @@
 package cn.hutool.db.handler;
 
-import cn.hutool.core.bean.BeanDesc.PropDesc;
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.bean.PropDesc;
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.ArrayUtil;
@@ -148,14 +148,18 @@ public class HandleHelper {
 	 * @since 3.3.1
 	 */
 	public static <T extends Entity> T handleRow(T row, int columnCount, ResultSetMetaData meta, ResultSet rs, boolean withMetaInfo) throws SQLException {
-		String columnLabel;
 		int type;
 		for (int i = 1; i <= columnCount; i++) {
 			type = meta.getColumnType(i);
 			row.put(meta.getColumnLabel(i), getColumnValue(rs, i, type, null));
 		}
 		if (withMetaInfo) {
-			row.setTableName(meta.getTableName(1));
+			try {
+				row.setTableName(meta.getTableName(1));
+			} catch (SQLException ignore){
+				//issue#I2AGLU@Gitee
+				// Hive等NoSQL中无表的概念，此处报错，跳过。
+			}
 			row.setFieldNames(row.keySet());
 		}
 		return row;

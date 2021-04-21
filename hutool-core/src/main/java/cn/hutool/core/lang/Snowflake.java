@@ -33,11 +33,11 @@ public class Snowflake implements Serializable {
 
 	private final long twepoch;
 	private final long workerIdBits = 5L;
-	private final long dataCenterIdBits = 5L;
-	//// 最大支持机器节点数0~31，一共32个
-	// 最大支持数据中心节点数0~31，一共32个
+	// 最大支持机器节点数0~31，一共32个
 	@SuppressWarnings({"PointlessBitwiseExpression", "FieldCanBeLocal"})
 	private final long maxWorkerId = -1L ^ (-1L << workerIdBits);
+	private final long dataCenterIdBits = 5L;
+	// 最大支持数据中心节点数0~31，一共32个
 	@SuppressWarnings({"PointlessBitwiseExpression", "FieldCanBeLocal"})
 	private final long maxDataCenterId = -1L ^ (-1L << dataCenterIdBits);
 	// 序列号12位
@@ -48,14 +48,15 @@ public class Snowflake implements Serializable {
 	private final long dataCenterIdShift = sequenceBits + workerIdBits;
 	// 时间毫秒数左移22位
 	private final long timestampLeftShift = sequenceBits + workerIdBits + dataCenterIdBits;
-	@SuppressWarnings({"PointlessBitwiseExpression", "FieldCanBeLocal"})
-	private final long sequenceMask = -1L ^ (-1L << sequenceBits);// 4095
+	// 序列掩码，用于限定序列最大值不能超过4095
+	@SuppressWarnings("FieldCanBeLocal")
+	private final long sequenceMask = ~(-1L << sequenceBits);// 4095
 
-	private long workerId;
-	private long dataCenterId;
+	private final long workerId;
+	private final long dataCenterId;
+	private final boolean useSystemClock;
 	private long sequence = 0L;
 	private long lastTimestamp = -1L;
-	private boolean useSystemClock;
 
 	/**
 	 * 构造
@@ -140,15 +141,22 @@ public class Snowflake implements Serializable {
 	 */
 	public synchronized long nextId() {
 		long timestamp = genTime();
-		if (timestamp < lastTimestamp) {
-			// 如果服务器时间有问题(时钟后退) 报错。
-			throw new IllegalStateException(StrUtil.format("Clock moved backwards. Refusing to generate id for {}ms", lastTimestamp - timestamp));
+		if (timestamp < this.lastTimestamp) {
+			if(this.lastTimestamp - timestamp < 2000){
+				// 容忍2秒内的回拨，避免NTP校时造成的异常
+				timestamp = lastTimestamp;
+			} else{
+				// 如果服务器时间有问题(时钟后退) 报错。
+				throw new IllegalStateException(StrUtil.format("Clock moved backwards. Refusing to generate id for {}ms", lastTimestamp - timestamp));
+			}
 		}
-		if (lastTimestamp == timestamp) {
-			sequence = (sequence + 1) & sequenceMask;
+
+		if (timestamp == this.lastTimestamp) {
+			final long sequence = (this.sequence + 1) & sequenceMask;
 			if (sequence == 0) {
 				timestamp = tilNextMillis(lastTimestamp);
 			}
+			this.sequence = sequence;
 		} else {
 			sequence = 0L;
 		}
@@ -177,8 +185,14 @@ public class Snowflake implements Serializable {
 	 */
 	private long tilNextMillis(long lastTimestamp) {
 		long timestamp = genTime();
-		while (timestamp <= lastTimestamp) {
+		// 循环直到操作系统时间戳变化
+		while (timestamp == lastTimestamp) {
 			timestamp = genTime();
+		}
+		if (timestamp < lastTimestamp) {
+			// 如果发现新的时间戳比上次记录的时间戳数值小，说明操作系统时间发生了倒退，报错
+			throw new IllegalStateException(
+					StrUtil.format("Clock moved backwards. Refusing to generate id for {}ms", lastTimestamp - timestamp));
 		}
 		return timestamp;
 	}

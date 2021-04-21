@@ -47,6 +47,32 @@ public class UserAgentUtilTest {
 	}
 
 	@Test
+	public void parseHuaweiPhoneWithNativeBrowserTest() {
+		String uaString = "Mozilla/5.0 (Linux; Android 10; EML-AL00 Build/HUAWEIEML-AL00) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Mobile Safari/537.36";
+		UserAgent ua = UserAgentUtil.parse(uaString);
+		Assert.assertEquals("Android Browser", ua.getBrowser().toString());
+		Assert.assertEquals("4.0", ua.getVersion());
+		Assert.assertEquals("Webkit", ua.getEngine().toString());
+		Assert.assertEquals("537.36", ua.getEngineVersion());
+		Assert.assertEquals("Android", ua.getOs().toString());
+		Assert.assertEquals("Android", ua.getPlatform().toString());
+		Assert.assertTrue(ua.isMobile());
+	}
+
+	@Test
+	public void parseSamsungPhoneWithNativeBrowserTest() {
+		String uaString = "Dalvik/2.1.0 (Linux; U; Android 9; SM-G950U Build/PPR1.180610.011)";
+		UserAgent ua = UserAgentUtil.parse(uaString);
+		Assert.assertEquals("Android Browser", ua.getBrowser().toString());
+		Assert.assertNull(ua.getVersion());
+		Assert.assertEquals("Unknown", ua.getEngine().toString());
+		Assert.assertNull(ua.getEngineVersion());
+		Assert.assertEquals("Android", ua.getOs().toString());
+		Assert.assertEquals("Android", ua.getPlatform().toString());
+		Assert.assertTrue(ua.isMobile());
+	}
+
+	@Test
 	public void parseWindows10WithChromeTest() {
 		String uaStr = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36";
 		UserAgent ua = UserAgentUtil.parse(uaStr);
@@ -161,5 +187,47 @@ public class UserAgentUtilTest {
 		Assert.assertEquals("Windows 10 or Windows Server 2016", ua.getOs().toString());
 		Assert.assertEquals("Windows", ua.getPlatform().toString());
 		Assert.assertFalse(ua.isMobile());
+	}
+
+	/**
+	 * https://github.com/looly/hutool/issues/1177
+	 */
+	@Test
+	public void parseMicroMessengerTest() {
+		String uaString = "Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Mobile/15A372 MicroMessenger/7.0.17(0x17001127) NetType/WIFI Language/zh_CN";
+		UserAgent ua = UserAgentUtil.parse(uaString);
+		Assert.assertEquals("MicroMessenger", ua.getBrowser().toString());
+		Assert.assertEquals("7.0.17", ua.getVersion());
+		Assert.assertEquals("Webkit", ua.getEngine().toString());
+		Assert.assertEquals("604.1.38", ua.getEngineVersion());
+		Assert.assertEquals("iPhone", ua.getOs().toString());
+		Assert.assertEquals("iPhone", ua.getPlatform().toString());
+		Assert.assertTrue(ua.isMobile());
+	}
+
+	@Test
+	public void parseWorkWxTest() {
+		String uaString = "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 wxwork/3.0.31 MicroMessenger/7.0.1 Language/zh";
+		UserAgent ua = UserAgentUtil.parse(uaString);
+		Assert.assertEquals("wxwork", ua.getBrowser().toString());
+		Assert.assertEquals("3.0.31", ua.getVersion());
+		Assert.assertEquals("Webkit", ua.getEngine().toString());
+		Assert.assertEquals("605.1.15", ua.getEngineVersion());
+		Assert.assertEquals("iPhone", ua.getOs().toString());
+		Assert.assertEquals("iPhone", ua.getPlatform().toString());
+		Assert.assertTrue(ua.isMobile());
+	}
+
+	@Test
+	public void parseDingTalkTest() {
+		String uaString = "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/18A373 AliApp(DingTalk/5.1.33) com.laiwang.DingTalk/13976299 Channel/201200 language/zh-Hans-CN WK";
+		UserAgent ua = UserAgentUtil.parse(uaString);
+		Assert.assertEquals("DingTalk", ua.getBrowser().toString());
+		Assert.assertEquals("5.1.33", ua.getVersion());
+		Assert.assertEquals("Webkit", ua.getEngine().toString());
+		Assert.assertEquals("605.1.15", ua.getEngineVersion());
+		Assert.assertEquals("iPhone", ua.getOs().toString());
+		Assert.assertEquals("iPhone", ua.getPlatform().toString());
+		Assert.assertTrue(ua.isMobile());
 	}
 }

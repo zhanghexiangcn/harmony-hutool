@@ -1,20 +1,22 @@
 package cn.hutool.json;
 
+import cn.hutool.core.convert.Convert;
+import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.date.TemporalAccessorUtil;
+import cn.hutool.core.util.CharUtil;
+import cn.hutool.core.util.NumberUtil;
+import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
+
 import java.io.IOException;
 import java.io.Writer;
+import java.math.BigDecimal;
 import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.Map;
-
-import cn.hutool.core.convert.Convert;
-import cn.hutool.core.date.DateUtil;
-import cn.hutool.core.util.CharUtil;
-import cn.hutool.core.util.NumberUtil;
-import cn.hutool.core.util.ObjectUtil;
-import cn.hutool.core.util.StrUtil;
 
 /**
  * 内部JSON工具类，仅用于JSON内部使用
@@ -31,7 +33,7 @@ final class InternalJSONUtil {
 	 *
 	 * @param writer       Writer
 	 * @param value        值
-	 * @param indentFactor 每一级别的缩进量
+	 * @param indentFactor 缩进因子，定义每一级别增加的缩进量
 	 * @param indent       缩进空格数
 	 * @param config       配置项
 	 * @return Writer
@@ -48,7 +50,9 @@ final class InternalJSONUtil {
 		} else if (value instanceof Iterable || value instanceof Iterator || value.getClass().isArray()) {
 			new JSONArray(value).write(writer, indentFactor, indent);
 		} else if (value instanceof Number) {
-			writer.write(NumberUtil.toStr((Number) value));
+			// since 5.6.2可配置是否去除末尾多余0，例如如果为true,5.0返回5
+			final boolean isStripTrailingZeros = null == config || config.isStripTrailingZeros();
+			writer.write(NumberUtil.toStr((Number) value, isStripTrailingZeros));
 		} else if (value instanceof Date || value instanceof Calendar || value instanceof TemporalAccessor) {
 			final String format = (null == config) ? null : config.getDateFormat();
 			writer.write(formatDate(value, format));
@@ -72,7 +76,7 @@ final class InternalJSONUtil {
 	 * 缩进，使用空格符
 	 *
 	 * @param writer writer
-	 * @param indent 随进空格数
+	 * @param indent 缩进空格数
 	 * @throws IOException IO异常
 	 */
 	protected static void indent(Writer writer, int indent) throws IOException {
@@ -139,12 +143,14 @@ final class InternalJSONUtil {
 	 * @return A simple JSON value.
 	 */
 	protected static Object stringToValue(String string) {
+		// null处理
 		if (null == string || "null".equalsIgnoreCase(string)) {
 			return JSONNull.NULL;
 		}
 
-		if (StrUtil.EMPTY.equals(string)) {
-			return string;
+		// boolean处理
+		if (0 == string.length()) {
+			return StrUtil.EMPTY;
 		}
 		if ("true".equalsIgnoreCase(string)) {
 			return Boolean.TRUE;
@@ -153,20 +159,22 @@ final class InternalJSONUtil {
 			return Boolean.FALSE;
 		}
 
-		/* If it might be a number, try converting it. If a number cannot be produced, then the value will just be a string. */
+		// Number处理
 		char b = string.charAt(0);
 		if ((b >= '0' && b <= '9') || b == '-') {
 			try {
-				if (string.indexOf('.') > -1 || string.indexOf('e') > -1 || string.indexOf('E') > -1) {
-					double d = Double.parseDouble(string);
-					if (false == Double.isInfinite(d) && false == Double.isNaN(d)) {
-						return d;
-					}
+				if (StrUtil.containsAnyIgnoreCase(string, ".", "e")) {
+					// pr#192@Gitee，Double会出现小数精度丢失问题，此处使用BigDecimal
+					//double d = Double.parseDouble(string);
+					//if (false == Double.isInfinite(d) && false == Double.isNaN(d)) {
+					//	return d;
+					//}
+					return new BigDecimal(string);
 				} else {
-					Long myLong = new Long(string);
-					if (string.equals(myLong.toString())) {
-						if (myLong == myLong.intValue()) {
-							return myLong.intValue();
+					final long myLong = Long.parseLong(string);
+					if (string.equals(Long.toString(myLong))) {
+						if (myLong == (int) myLong) {
+							return (int) myLong;
 						} else {
 							return myLong;
 						}
@@ -175,6 +183,8 @@ final class InternalJSONUtil {
 			} catch (Exception ignore) {
 			}
 		}
+
+		// 其它情况返回原String值下
 		return string;
 	}
 
@@ -188,26 +198,30 @@ final class InternalJSONUtil {
 	 * @return JSONObject
 	 */
 	protected static JSONObject propertyPut(JSONObject jsonObject, Object key, Object value) {
-		String keyStr = Convert.toStr(key);
-		String[] path = StrUtil.split(keyStr, StrUtil.DOT);
+		final String[] path = StrUtil.split(Convert.toStr(key), StrUtil.DOT);
 		int last = path.length - 1;
 		JSONObject target = jsonObject;
 		for (int i = 0; i < last; i += 1) {
 			String segment = path[i];
 			JSONObject nextTarget = target.getJSONObject(segment);
 			if (nextTarget == null) {
-				nextTarget = new JSONObject();
-				target.put(segment, nextTarget);
+				nextTarget = new JSONObject(target.getConfig());
+				target.set(segment, nextTarget);
 			}
 			target = nextTarget;
 		}
-		target.put(path[last], value);
+		target.set(path[last], value);
 		return jsonObject;
 	}
 
 	/**
-	 * 默认情况下是否忽略null值的策略选择<br>
-	 * JavaBean默认忽略null值，其它对象不忽略
+	 * 默认情况下是否忽略null值的策略选择，以下对象不忽略null值，其它对象忽略：
+	 *
+	 * <pre>
+	 *     1. CharSequence
+	 *     2. JSONTokener
+	 *     3. Map
+	 * </pre>
 	 *
 	 * @param obj 需要检查的对象
 	 * @return 是否忽略null值
@@ -228,19 +242,25 @@ final class InternalJSONUtil {
 	 */
 	private static String formatDate(Object dateObj, String format) {
 		if (StrUtil.isNotBlank(format)) {
+			final String dateStr;
+			if(dateObj instanceof TemporalAccessor){
+				dateStr = TemporalAccessorUtil.format((TemporalAccessor) dateObj, format);
+			} else{
+				dateStr = DateUtil.format(Convert.toDate(dateObj), format);
+			}
 			//用户定义了日期格式
-			return JSONUtil.quote(DateUtil.format(Convert.toDate(dateObj), format));
+			return JSONUtil.quote(dateStr);
 		}
 
 		//默认使用时间戳
 		long timeMillis;
-		if(dateObj instanceof TemporalAccessor){
-			timeMillis = DateUtil.toInstant((TemporalAccessor)dateObj).toEpochMilli();
-		} else if(dateObj instanceof  Date){
+		if (dateObj instanceof TemporalAccessor) {
+			timeMillis = TemporalAccessorUtil.toEpochMilli((TemporalAccessor) dateObj);
+		} else if (dateObj instanceof Date) {
 			timeMillis = ((Date) dateObj).getTime();
-		} else if(dateObj instanceof Calendar){
+		} else if (dateObj instanceof Calendar) {
 			timeMillis = ((Calendar) dateObj).getTimeInMillis();
-		} else{
+		} else {
 			throw new UnsupportedOperationException("Unsupported Date type: " + dateObj.getClass());
 		}
 		return String.valueOf(timeMillis);

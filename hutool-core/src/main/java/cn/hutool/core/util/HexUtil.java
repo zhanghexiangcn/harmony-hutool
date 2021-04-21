@@ -26,7 +26,7 @@ public class HexUtil {
 
 	/**
 	 * 判断给定字符串是否为16进制数<br>
-	 * 如果是，需要使用对应数字类型对象的<code>decode</code>方法解码<br>
+	 * 如果是，需要使用对应数字类型对象的{@code decode}方法解码<br>
 	 * 例如：{@code Integer.decode}方法解码int类型的16进制数字
 	 *
 	 * @param value 值
@@ -74,7 +74,7 @@ public class HexUtil {
 	 * 将字节数组转换为十六进制字符数组
 	 *
 	 * @param data        byte[]
-	 * @param toLowerCase <code>true</code> 传换成小写格式 ， <code>false</code> 传换成大写格式
+	 * @param toLowerCase {@code true} 传换成小写格式 ， {@code false} 传换成大写格式
 	 * @return 十六进制char[]
 	 */
 	public static char[] encodeHex(byte[] data, boolean toLowerCase) {
@@ -92,9 +92,9 @@ public class HexUtil {
 	}
 
 	/**
-	 * 将字节数组转换为十六进制字符串，结果为小写
+	 * 将字符串转换为十六进制字符串，结果为小写
 	 *
-	 * @param data    被编码的字符串
+	 * @param data    需要被编码的字符串
 	 * @param charset 编码
 	 * @return 十六进制String
 	 */
@@ -103,7 +103,7 @@ public class HexUtil {
 	}
 
 	/**
-	 * 将字节数组转换为十六进制字符串，结果为小写，默认编码是UTF-8
+	 * 将字符串转换为十六进制字符串，结果为小写，默认编码是UTF-8
 	 *
 	 * @param data 被编码的字符串
 	 * @return 十六进制String
@@ -116,7 +116,7 @@ public class HexUtil {
 	 * 将字节数组转换为十六进制字符串
 	 *
 	 * @param data        byte[]
-	 * @param toLowerCase <code>true</code> 传换成小写格式 ， <code>false</code> 传换成大写格式
+	 * @param toLowerCase {@code true} 传换成小写格式 ， {@code false} 传换成大写格式
 	 * @return 十六进制String
 	 */
 	public static String encodeHexStr(byte[] data, boolean toLowerCase) {
@@ -199,7 +199,8 @@ public class HexUtil {
 		if (StrUtil.isEmpty(hexStr)) {
 			return null;
 		}
-		hexStr = StrUtil.removeAll(hexStr, ' ');
+
+		hexStr = StrUtil.cleanBlank(hexStr);
 		return decodeHex(hexStr.toCharArray());
 	}
 
@@ -261,7 +262,7 @@ public class HexUtil {
 	 * 转换的字符串如果u后不足4位，则前面用0填充，例如：
 	 *
 	 * <pre>
-	 * '我' =》\u4f60
+	 * '你' =》\u4f60
 	 * </pre>
 	 *
 	 * @param value int值，也可以是char
@@ -286,7 +287,7 @@ public class HexUtil {
 	 * 转换的字符串如果u后不足4位，则前面用0填充，例如：
 	 *
 	 * <pre>
-	 * '我' =》\u4f60
+	 * '你' =》'\u4f60'
 	 * </pre>
 	 *
 	 * @param ch char值
@@ -342,15 +343,35 @@ public class HexUtil {
 
 	/**
 	 * Hex（16进制）字符串转为BigInteger
+	 *
 	 * @param hexStr Hex(16进制字符串)
 	 * @return {@link BigInteger}
 	 * @since 5.2.0
 	 */
-	public static BigInteger toBigInteger(String hexStr){
-		if(null == hexStr){
+	public static BigInteger toBigInteger(String hexStr) {
+		if (null == hexStr) {
 			return null;
 		}
 		return new BigInteger(hexStr, 16);
+	}
+
+	/**
+	 * 格式化Hex字符串，结果为每2位加一个空格，类似于：
+	 * <pre>
+	 *     e8 8c 67 03 80 cb 22 00 95 26 8f
+	 * </pre>
+	 *
+	 * @param hexStr Hex字符串
+	 * @return 格式化后的字符串
+	 */
+	public static String format(String hexStr) {
+		final int length = hexStr.length();
+		final StringBuilder builder = StrUtil.builder(length + length / 2);
+		builder.append(hexStr.charAt(0)).append(hexStr.charAt(1));
+		for (int i = 2; i < length - 1; i += 2) {
+			builder.append(CharUtil.SPACE).append(hexStr.charAt(i)).append(hexStr.charAt(i + 1));
+		}
+		return builder.toString();
 	}
 
 	// ---------------------------------------------------------------------------------------- Private method start

@@ -1,20 +1,19 @@
 package cn.hutool.captcha;
 
-import java.awt.Color;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.image.BufferedImage;
-import java.util.concurrent.ThreadLocalRandom;
-
 import cn.hutool.core.img.GraphicsUtil;
 import cn.hutool.core.img.ImgUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.RandomUtil;
 
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+import java.util.concurrent.ThreadLocalRandom;
+
 /**
  * 圆圈干扰验证码
- * 
+ *
  * @author looly
  * @since 3.2.3
  *
@@ -24,7 +23,7 @@ public class CircleCaptcha extends AbstractCaptcha {
 
 	/**
 	 * 构造
-	 * 
+	 *
 	 * @param width 图片宽
 	 * @param height 图片高
 	 */
@@ -34,7 +33,7 @@ public class CircleCaptcha extends AbstractCaptcha {
 
 	/**
 	 * 构造
-	 * 
+	 *
 	 * @param width 图片宽
 	 * @param height 图片高
 	 * @param codeCount 字符个数
@@ -45,7 +44,7 @@ public class CircleCaptcha extends AbstractCaptcha {
 
 	/**
 	 * 构造
-	 * 
+	 *
 	 * @param width 图片宽
 	 * @param height 图片高
 	 * @param codeCount 字符个数
@@ -72,8 +71,8 @@ public class CircleCaptcha extends AbstractCaptcha {
 	// ----------------------------------------------------------------------------------------------------- Private method start
 	/**
 	 * 绘制字符串
-	 * 
-	 * @param g {@link Graphics}画笔
+	 *
+	 * @param g {@link Graphics2D}画笔
 	 * @param code 验证码
 	 */
 	private void drawString(Graphics2D g, String code) {
@@ -86,7 +85,7 @@ public class CircleCaptcha extends AbstractCaptcha {
 
 	/**
 	 * 画随机干扰
-	 * 
+	 *
 	 * @param g {@link Graphics2D}
 	 */
 	private void drawInterfere(Graphics2D g) {

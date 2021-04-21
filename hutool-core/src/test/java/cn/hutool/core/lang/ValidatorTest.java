@@ -1,6 +1,7 @@
 package cn.hutool.core.lang;
 
 import cn.hutool.core.exceptions.ValidateException;
+import cn.hutool.core.util.IdUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -70,8 +71,17 @@ public class ValidatorTest {
 
 	@Test
 	public void isCitizenIdTest() {
-		boolean b = Validator.isCitizenId("150218199012123389");
+		// 18为身份证号码验证
+		boolean b = Validator.isCitizenId("110101199003074477");
 		Assert.assertTrue(b);
+
+		// 15位身份证号码验证
+		boolean b1 = Validator.isCitizenId("410001910101123");
+		Assert.assertTrue(b1);
+
+		// 10位身份证号码验证
+		boolean b2 = Validator.isCitizenId("U193683453");
+		Assert.assertTrue(b2);
 	}
 
 	@Test(expected = ValidateException.class)
@@ -135,5 +145,65 @@ public class ValidatorTest {
 	public void isPlateNumberTest(){
 		Assert.assertTrue(Validator.isPlateNumber("粤BA03205"));
 		Assert.assertTrue(Validator.isPlateNumber("闽20401领"));
+	}
+
+	@Test
+	public void isChineseTest(){
+		Assert.assertTrue(Validator.isChinese("全都是中文"));
+		Assert.assertFalse(Validator.isChinese("not全都是中文"));
+	}
+
+	@Test
+	public void isUUIDTest(){
+		Assert.assertTrue(Validator.isUUID(IdUtil.randomUUID()));
+		Assert.assertTrue(Validator.isUUID(IdUtil.fastSimpleUUID()));
+
+		Assert.assertTrue(Validator.isUUID(IdUtil.randomUUID().toUpperCase()));
+		Assert.assertTrue(Validator.isUUID(IdUtil.fastSimpleUUID().toUpperCase()));
+	}
+
+	@Test
+	public void isZipCodeTest(){
+		// 港
+		boolean zipCode = Validator.isZipCode("999077");
+		Assert.assertTrue(zipCode);
+		// 澳
+		zipCode = Validator.isZipCode("999078");
+		Assert.assertTrue(zipCode);
+		// 台（2020年3月起改用6位邮编，3+3）
+		zipCode = Validator.isZipCode("822001");
+		Assert.assertTrue(zipCode);
+
+		// 内蒙
+		zipCode = Validator.isZipCode("016063");
+		Assert.assertTrue(zipCode);
+		// 山西
+		zipCode = Validator.isZipCode("045246");
+		Assert.assertTrue(zipCode);
+		// 河北
+		zipCode = Validator.isZipCode("066502");
+		Assert.assertTrue(zipCode);
+		// 北京
+		zipCode = Validator.isZipCode("102629");
+		Assert.assertTrue(zipCode);
+	}
+
+	@Test
+	public void isBetweenTest() {
+		Assert.assertTrue(Validator.isBetween(0, 0, 1));
+		Assert.assertTrue(Validator.isBetween(1L, 0L, 1L));
+		Assert.assertTrue(Validator.isBetween(0.19f, 0.1f, 0.2f));
+		Assert.assertTrue(Validator.isBetween(0.19, 0.1, 0.2));
+	}
+
+	@Test
+	public void isCarVinTest(){
+		Assert.assertTrue(Validator.isCarVin("LSJA24U62JG269225"));
+		Assert.assertTrue(Validator.isCarVin("LDC613P23A1305189"));
+	}
+
+	@Test
+	public void isCarDrivingLicenceTest(){
+		Assert.assertTrue(Validator.isCarDrivingLicence("430101758218"));
 	}
 }

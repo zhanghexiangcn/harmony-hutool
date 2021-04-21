@@ -16,7 +16,7 @@ import java.util.List;
 public class Tree<T> extends LinkedHashMap<String, Object> implements Node<T> {
 	private static final long serialVersionUID = 1L;
 
-	private TreeNodeConfig treeNodeConfig;
+	private final TreeNodeConfig treeNodeConfig;
 	private Tree<T> parent;
 
 	public Tree() {
@@ -29,7 +29,6 @@ public class Tree<T> extends LinkedHashMap<String, Object> implements Node<T> {
 	 * @param treeNodeConfig TreeNode配置
 	 */
 	public Tree(TreeNodeConfig treeNodeConfig) {
-		super();
 		this.treeNodeConfig = ObjectUtil.defaultIfNull(
 				treeNodeConfig, TreeNodeConfig.DEFAULT_CONFIG);
 	}

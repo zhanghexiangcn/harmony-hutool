@@ -1,10 +1,11 @@
 package cn.hutool.core.io;
 
+import cn.hutool.core.util.CharsetUtil;
+import cn.hutool.core.util.ObjectUtil;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
-
-import cn.hutool.core.util.CharsetUtil;
 
 /**
  * 基于快速缓冲FastByteBuffer的OutputStream，随着数据的增长自动扩充缓冲区
@@ -34,7 +35,6 @@ public class FastByteArrayOutputStream extends OutputStream {
 		buffer = new FastByteBuffer(size);
 	}
 
-	@SuppressWarnings("NullableProblems")
 	@Override
 	public void write(byte[] b, int off, int len) {
 		buffer.append(b, off, len);
@@ -91,7 +91,7 @@ public class FastByteArrayOutputStream extends OutputStream {
 
 	@Override
 	public String toString() {
-		return new String(toByteArray());
+		return toString(CharsetUtil.defaultCharset());
 	}
 
 	/**
@@ -105,11 +105,12 @@ public class FastByteArrayOutputStream extends OutputStream {
 	
 	/**
 	 * 转为字符串
-	 * @param charset 编码
+	 * @param charset 编码,null表示默认编码
 	 * @return 字符串
 	 */
 	public String toString(Charset charset) {
-		return new String(toByteArray(), charset);
+		return new String(toByteArray(),
+				ObjectUtil.defaultIfNull(charset, CharsetUtil.defaultCharset()));
 	}
 
 }

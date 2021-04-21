@@ -1,8 +1,5 @@
 package cn.hutool.db.nosql.redis;
 
-import java.io.Closeable;
-import java.io.IOException;
-
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.setting.Setting;
@@ -11,13 +8,17 @@ import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Protocol;
 
+import java.io.Closeable;
+import java.io.Serializable;
+
 /**
  * Jedis数据源
  * 
  * @author looly
  * @since 3.2.3
  */
-public class RedisDS implements Closeable{
+public class RedisDS implements Closeable, Serializable {
+	private static final long serialVersionUID = -5605411972456177456L;
 	/** 默认配置文件 */
 	public final static String REDIS_CONFIG_PATH = "config/redis.setting";
 
@@ -30,7 +31,7 @@ public class RedisDS implements Closeable{
 	/**
 	 * 创建RedisDS，使用默认配置文件，默认分组
 	 * 
-	 * @return {@link RedisDS}
+	 * @return RedisDS
 	 */
 	public static RedisDS create() {
 		return new RedisDS();
@@ -40,7 +41,7 @@ public class RedisDS implements Closeable{
 	 * 创建RedisDS，使用默认配置文件
 	 * 
 	 * @param group 配置文件中配置分组
-	 * @return {@link RedisDS}
+	 * @return RedisDS
 	 */
 	public static RedisDS create(String group) {
 		return new RedisDS(group);
@@ -51,7 +52,7 @@ public class RedisDS implements Closeable{
 	 * 
 	 * @param setting 配置文件
 	 * @param group 配置文件中配置分组
-	 * @return {@link RedisDS}
+	 * @return RedisDS
 	 */
 	public static RedisDS create(Setting setting, String group) {
 		return new RedisDS(setting, group);
@@ -174,7 +175,7 @@ public class RedisDS implements Closeable{
 	}
 
 	@Override
-	public void close() throws IOException {
+	public void close() {
 		IoUtil.close(pool);
 	}
 }

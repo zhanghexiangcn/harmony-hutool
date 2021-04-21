@@ -1,6 +1,7 @@
 package cn.hutool.core.collection;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.comparator.CompareUtil;
 import cn.hutool.core.comparator.PinyinComparator;
 import cn.hutool.core.comparator.PropertyComparator;
 import cn.hutool.core.convert.Convert;
@@ -9,6 +10,7 @@ import cn.hutool.core.exceptions.UtilException;
 import cn.hutool.core.lang.Editor;
 import cn.hutool.core.lang.Filter;
 import cn.hutool.core.lang.Matcher;
+import cn.hutool.core.lang.func.Func1;
 import cn.hutool.core.lang.hash.Hash32;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.ArrayUtil;
@@ -19,9 +21,9 @@ import cn.hutool.core.util.ReflectUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.TypeUtil;
 
+import java.io.Serializable;
 import java.lang.reflect.Type;
 import java.util.AbstractCollection;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -38,8 +40,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.Stack;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -47,6 +51,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * 集合相关工具类
@@ -99,22 +105,22 @@ public class CollUtil {
 	 * @return 并集的集合，返回 {@link ArrayList}
 	 */
 	public static <T> Collection<T> union(Collection<T> coll1, Collection<T> coll2) {
-		final ArrayList<T> list = new ArrayList<>();
 		if (isEmpty(coll1)) {
-			list.addAll(coll2);
+			return new ArrayList<>(coll2);
 		} else if (isEmpty(coll2)) {
-			list.addAll(coll1);
-		} else {
-			final Map<T, Integer> map1 = countMap(coll1);
-			final Map<T, Integer> map2 = countMap(coll2);
-			final Set<T> elts = newHashSet(coll2);
-			elts.addAll(coll1);
-			int m;
-			for (T t : elts) {
-				m = Math.max(Convert.toInt(map1.get(t), 0), Convert.toInt(map2.get(t), 0));
-				for (int i = 0; i < m; i++) {
-					list.add(t);
-				}
+			return new ArrayList<>(coll1);
+		}
+
+		final ArrayList<T> list = new ArrayList<>(Math.max(coll1.size(), coll2.size()));
+		final Map<T, Integer> map1 = countMap(coll1);
+		final Map<T, Integer> map2 = countMap(coll2);
+		final Set<T> elts = newHashSet(coll2);
+		elts.addAll(coll1);
+		int m;
+		for (T t : elts) {
+			m = Math.max(Convert.toInt(map1.get(t), 0), Convert.toInt(map2.get(t), 0));
+			for (int i = 0; i < m; i++) {
+				list.add(t);
 			}
 		}
 		return list;
@@ -142,6 +148,74 @@ public class CollUtil {
 	}
 
 	/**
+	 * 多个集合的非重复并集，类似于SQL中的“UNION DISTINCT”<br>
+	 * 针对一个集合中存在多个相同元素的情况，只保留一个<br>
+	 * 例如：集合1：[a, b, c, c, c]，集合2：[a, b, c, c]<br>
+	 * 结果：[a, b, c]，此结果中只保留了一个c
+	 *
+	 * @param <T>        集合元素类型
+	 * @param coll1      集合1
+	 * @param coll2      集合2
+	 * @param otherColls 其它集合
+	 * @return 并集的集合，返回 {@link LinkedHashSet}
+	 */
+	@SafeVarargs
+	public static <T> Set<T> unionDistinct(Collection<T> coll1, Collection<T> coll2, Collection<T>... otherColls) {
+		final Set<T> result;
+		if (isEmpty(coll1)) {
+			result = new LinkedHashSet<>();
+		} else {
+			result = new LinkedHashSet<>(coll1);
+		}
+
+		if (isNotEmpty(coll2)) {
+			result.addAll(coll2);
+		}
+
+		if (ArrayUtil.isNotEmpty(otherColls)) {
+			for (Collection<T> otherColl : otherColls) {
+				result.addAll(otherColl);
+			}
+		}
+
+		return result;
+	}
+
+	/**
+	 * 多个集合的完全并集，类似于SQL中的“UNION ALL”<br>
+	 * 针对一个集合中存在多个相同元素的情况，保留全部元素<br>
+	 * 例如：集合1：[a, b, c, c, c]，集合2：[a, b, c, c]<br>
+	 * 结果：[a, b, c, c, c, a, b, c, c]
+	 *
+	 * @param <T>        集合元素类型
+	 * @param coll1      集合1
+	 * @param coll2      集合2
+	 * @param otherColls 其它集合
+	 * @return 并集的集合，返回 {@link ArrayList}
+	 */
+	@SafeVarargs
+	public static <T> List<T> unionAll(Collection<T> coll1, Collection<T> coll2, Collection<T>... otherColls) {
+		final List<T> result;
+		if (isEmpty(coll1)) {
+			result = new ArrayList<>();
+		} else {
+			result = new ArrayList<>(coll1);
+		}
+
+		if (isNotEmpty(coll2)) {
+			result.addAll(coll2);
+		}
+
+		if (ArrayUtil.isNotEmpty(otherColls)) {
+			for (Collection<T> otherColl : otherColls) {
+				result.addAll(otherColl);
+			}
+		}
+
+		return result;
+	}
+
+	/**
 	 * 两个集合的交集<br>
 	 * 针对一个集合中存在多个相同元素的情况，计算两个集合中此元素的个数，保留最少的个数<br>
 	 * 例如：集合1：[a, b, c, c, c]，集合2：[a, b, c, c]<br>
@@ -153,8 +227,8 @@ public class CollUtil {
 	 * @return 交集的集合，返回 {@link ArrayList}
 	 */
 	public static <T> Collection<T> intersection(Collection<T> coll1, Collection<T> coll2) {
-		final ArrayList<T> list = new ArrayList<>();
 		if (isNotEmpty(coll1) && isNotEmpty(coll2)) {
+			final ArrayList<T> list = new ArrayList<>(Math.min(coll1.size(), coll2.size()));
 			final Map<T, Integer> map1 = countMap(coll1);
 			final Map<T, Integer> map2 = countMap(coll2);
 			final Set<T> elts = newHashSet(coll2);
@@ -165,8 +239,10 @@ public class CollUtil {
 					list.add(t);
 				}
 			}
+			return list;
 		}
-		return list;
+
+		return new ArrayList<>();
 	}
 
 	/**
@@ -197,6 +273,45 @@ public class CollUtil {
 	}
 
 	/**
+	 * 多个集合的交集<br>
+	 * 针对一个集合中存在多个相同元素的情况，只保留一个<br>
+	 * 例如：集合1：[a, b, c, c, c]，集合2：[a, b, c, c]<br>
+	 * 结果：[a, b, c]，此结果中只保留了一个c
+	 *
+	 * @param <T>        集合元素类型
+	 * @param coll1      集合1
+	 * @param coll2      集合2
+	 * @param otherColls 其它集合
+	 * @return 并集的集合，返回 {@link LinkedHashSet}
+	 * @since 5.3.9
+	 */
+	@SafeVarargs
+	public static <T> Set<T> intersectionDistinct(Collection<T> coll1, Collection<T> coll2, Collection<T>... otherColls) {
+		final Set<T> result;
+		if (isEmpty(coll1) || isEmpty(coll2)) {
+			// 有一个空集合就直接返回空
+			return new LinkedHashSet<>();
+		} else {
+			result = new LinkedHashSet<>(coll1);
+		}
+
+		if (ArrayUtil.isNotEmpty(otherColls)) {
+			for (Collection<T> otherColl : otherColls) {
+				if (isNotEmpty(otherColl)) {
+					result.retainAll(otherColl);
+				} else {
+					// 有一个空集合就直接返回空
+					return new LinkedHashSet<>();
+				}
+			}
+		}
+
+		result.retainAll(coll2);
+
+		return result;
+	}
+
+	/**
 	 * 两个集合的差集<br>
 	 * 针对一个集合中存在多个相同元素的情况，计算两个集合中此元素的个数，保留两个集合中此元素个数差的个数<br>
 	 * 例如：
@@ -222,7 +337,7 @@ public class CollUtil {
 			return coll1;
 		}
 
-		final ArrayList<T> result = new ArrayList<>();
+		final List<T> result = new ArrayList<>();
 		final Map<T, Integer> map1 = countMap(coll1);
 		final Map<T, Integer> map2 = countMap(coll2);
 		final Set<T> elts = newHashSet(coll2);
@@ -246,12 +361,45 @@ public class CollUtil {
 	 *
 	 * @param coll1 集合1
 	 * @param coll2 集合2
-	 * @param <T> 元素类型
+	 * @param <T>   元素类型
 	 * @return 单差集
 	 */
 	public static <T> Collection<T> subtract(Collection<T> coll1, Collection<T> coll2) {
 		final Collection<T> result = ObjectUtil.clone(coll1);
 		result.removeAll(coll2);
+		return result;
+	}
+
+	/**
+	 * 计算集合的单差集，即只返回【集合1】中有，但是【集合2】中没有的元素，例如：
+	 *
+	 * <pre>
+	 *     subtractToList([1,2,3,4],[2,3,4,5]) -》 [1]
+	 * </pre>
+	 *
+	 * @param coll1 集合1
+	 * @param coll2 集合2
+	 * @param <T>   元素类型
+	 * @return 单差集
+	 * @since 5.3.5
+	 */
+	public static <T> List<T> subtractToList(Collection<T> coll1, Collection<T> coll2) {
+
+		if (isEmpty(coll1)) {
+			return ListUtil.empty();
+		}
+		if (isEmpty(coll2)) {
+			return ListUtil.list(true, coll1);
+		}
+
+		//将被交数用链表储存，防止因为频繁扩容影响性能
+		final List<T> result = new LinkedList<>();
+		Set<T> set = new HashSet<>(coll2);
+		for (T t : coll1) {
+			if (false == set.contains(t)) {
+				result.add(t);
+			}
+		}
 		return result;
 	}
 
@@ -265,6 +413,26 @@ public class CollUtil {
 	 */
 	public static boolean contains(Collection<?> collection, Object value) {
 		return isNotEmpty(collection) && collection.contains(value);
+	}
+
+	/**
+	 * 自定义函数判断集合是否包含某类值
+	 *
+	 * @param collection  集合
+	 * @param containFunc 自定义判断函数
+	 * @param <T>         值类型
+	 * @return 是否包含自定义规则的值
+	 */
+	public static <T> boolean contains(Collection<T> collection, Predicate<? super T> containFunc) {
+		if (isEmpty(collection)) {
+			return false;
+		}
+		for (T t : collection) {
+			if (containFunc.test(t)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -305,7 +473,15 @@ public class CollUtil {
 	 * @since 4.5.12
 	 */
 	public static boolean containsAll(Collection<?> coll1, Collection<?> coll2) {
-		if (isEmpty(coll1) || isEmpty(coll2) || coll1.size() < coll2.size()) {
+		if (isEmpty(coll1)) {
+			return isEmpty(coll2);
+		}
+
+		if (isEmpty(coll2)) {
+			return true;
+		}
+
+		if (coll1.size() < coll2.size()) {
 			return false;
 		}
 
@@ -328,10 +504,10 @@ public class CollUtil {
 	 * @param <T>        集合元素类型
 	 * @param collection 集合
 	 * @return {@link Map}
-	 * @see IterUtil#countMap(Iterable)
+	 * @see IterUtil#countMap(Iterator)
 	 */
 	public static <T> Map<T, Integer> countMap(Iterable<T> collection) {
-		return IterUtil.countMap(collection);
+		return IterUtil.countMap(null == collection ? null : collection.iterator());
 	}
 
 	/**
@@ -342,10 +518,31 @@ public class CollUtil {
 	 * @param iterable    {@link Iterable}
 	 * @param conjunction 分隔符
 	 * @return 连接后的字符串
-	 * @see IterUtil#join(Iterable, CharSequence)
+	 * @see IterUtil#join(Iterator, CharSequence)
 	 */
 	public static <T> String join(Iterable<T> iterable, CharSequence conjunction) {
-		return IterUtil.join(iterable, conjunction);
+		if (null == iterable) {
+			return null;
+		}
+		return IterUtil.join(iterable.iterator(), conjunction);
+	}
+
+	/**
+	 * 以 conjunction 为分隔符将集合转换为字符串
+	 *
+	 * @param <T>         集合元素类型
+	 * @param iterable    {@link Iterable}
+	 * @param conjunction 分隔符
+	 * @param prefix      每个元素添加的前缀，null表示不添加
+	 * @param suffix      每个元素添加的后缀，null表示不添加
+	 * @return 连接后的字符串
+	 * @since 5.3.0
+	 */
+	public static <T> String join(Iterable<T> iterable, CharSequence conjunction, String prefix, String suffix) {
+		if (null == iterable) {
+			return null;
+		}
+		return IterUtil.join(iterable.iterator(), conjunction, prefix, suffix);
 	}
 
 	/**
@@ -356,8 +553,9 @@ public class CollUtil {
 	 * @param iterator    集合
 	 * @param conjunction 分隔符
 	 * @return 连接后的字符串
-	 * @see IterUtil#join(Iterator, CharSequence)
+	 * @deprecated 请使用IterUtil#join(Iterator, CharSequence)
 	 */
+	@Deprecated
 	public static <T> String join(Iterator<T> iterator, CharSequence conjunction) {
 		return IterUtil.join(iterator, conjunction);
 	}
@@ -373,7 +571,7 @@ public class CollUtil {
 	 */
 	public static <T> List<T> popPart(Stack<T> surplusAlaDatas, int partSize) {
 		if (isEmpty(surplusAlaDatas)) {
-			return null;
+			return ListUtil.empty();
 		}
 
 		final List<T> currentAlaDatas = new ArrayList<>();
@@ -402,7 +600,7 @@ public class CollUtil {
 	 */
 	public static <T> List<T> popPart(Deque<T> surplusAlaDatas, int partSize) {
 		if (isEmpty(surplusAlaDatas)) {
-			return null;
+			return ListUtil.empty();
 		}
 
 		final List<T> currentAlaDatas = new ArrayList<>();
@@ -644,8 +842,8 @@ public class CollUtil {
 	 * 新建一个List<br>
 	 * 提供的参数为null时返回空{@link ArrayList}
 	 *
-	 * @param <T>        集合元素类型
-	 * @param isLinked   是否新建LinkedList
+	 * @param <T>         集合元素类型
+	 * @param isLinked    是否新建LinkedList
 	 * @param enumeration {@link Enumeration}
 	 * @return ArrayList对象
 	 * @since 3.0.8
@@ -708,7 +906,7 @@ public class CollUtil {
 	 * 新建一个ArrayList<br>
 	 * 提供的参数为null时返回空{@link ArrayList}
 	 *
-	 * @param <T>  集合元素类型
+	 * @param <T>      集合元素类型
 	 * @param iterator {@link Iterator}
 	 * @return ArrayList对象
 	 * @since 3.0.8
@@ -721,7 +919,7 @@ public class CollUtil {
 	 * 新建一个ArrayList<br>
 	 * 提供的参数为null时返回空{@link ArrayList}
 	 *
-	 * @param <T>        集合元素类型
+	 * @param <T>         集合元素类型
 	 * @param enumeration {@link Enumeration}
 	 * @return ArrayList对象
 	 * @since 3.0.8
@@ -798,8 +996,13 @@ public class CollUtil {
 		} else if (collectionType.isAssignableFrom(LinkedHashSet.class)) {
 			list = new LinkedHashSet<>();
 		} else if (collectionType.isAssignableFrom(TreeSet.class)) {
-			//noinspection SortedCollectionWithNonComparableKeys
-			list = new TreeSet<>();
+			list = new TreeSet<>((o1, o2) -> {
+				// 优先按照对象本身比较，如果没有实现比较接口，默认按照toString内容比较
+				if (o1 instanceof Comparable) {
+					return ((Comparable<T>) o1).compareTo(o2);
+				}
+				return CompareUtil.compare(o1.toString(), o2.toString());
+			});
 		} else if (collectionType.isAssignableFrom(EnumSet.class)) {
 			list = (Collection<T>) EnumSet.noneOf((Class<Enum>) ClassUtil.getTypeArgument(collectionType));
 		}
@@ -824,7 +1027,7 @@ public class CollUtil {
 
 	/**
 	 * 创建Map<br>
-	 * 传入抽象Map{@link AbstractMap}和{@link Map}类将默认创建{@link HashMap}
+	 * 传入AbstractMap和{@link Map}类将默认创建{@link HashMap}
 	 *
 	 * @param <K>     map键类型
 	 * @param <V>     map值类型
@@ -907,10 +1110,27 @@ public class CollUtil {
 	 */
 	public static <T> List<T> sub(Collection<T> list, int start, int end, int step) {
 		if (list == null || list.isEmpty()) {
-			return null;
+			return ListUtil.empty();
 		}
 
 		return sub(new ArrayList<>(list), start, end, step);
+	}
+
+	/**
+	 * 对集合按照指定长度分段，每一个段为单独的集合，返回这个集合的列表
+	 * <p>
+	 * 需要特别注意的是，此方法调用{@link List#subList(int, int)}切分List，
+	 * 此方法返回的是原List的视图，也就是说原List有变更，切分后的结果也会变更。
+	 * </p>
+	 *
+	 * @param <T>  集合元素类型
+	 * @param list 列表
+	 * @param size 每个段的长度
+	 * @return 分段列表
+	 * @since 5.4.5
+	 */
+	public static <T> List<List<T>> splitList(List<T> list, int size) {
+		return ListUtil.split(list, size);
 	}
 
 	/**
@@ -923,6 +1143,9 @@ public class CollUtil {
 	 */
 	public static <T> List<List<T>> split(Collection<T> collection, int size) {
 		final List<List<T>> result = new ArrayList<>();
+		if (CollUtil.isEmpty(collection)) {
+			return result;
+		}
 
 		ArrayList<T> subList = new ArrayList<>(size);
 		for (T t : collection) {
@@ -1134,17 +1357,37 @@ public class CollUtil {
 	 * @param editor     编辑器
 	 * @param ignoreNull 是否忽略空值
 	 * @return 抽取后的新列表
+	 * @see #map(Iterable, Function, boolean)
 	 * @since 4.5.7
 	 */
 	public static List<Object> extract(Iterable<?> collection, Editor<Object> editor, boolean ignoreNull) {
-		final List<Object> fieldValueList = new ArrayList<>();
+		return map(collection, editor::edit, ignoreNull);
+	}
+
+	/**
+	 * 通过func自定义一个规则，此规则将原集合中的元素转换成新的元素，生成新的列表返回<br>
+	 * 例如提供的是一个Bean列表，通过Function接口实现获取某个字段值，返回这个字段值组成的新列表
+	 *
+	 * @param <T>        集合元素类型
+	 * @param <R>        返回集合元素类型
+	 * @param collection 原集合
+	 * @param func       编辑函数
+	 * @param ignoreNull 是否忽略空值，这里的空值包括函数处理前和处理后的null值
+	 * @return 抽取后的新列表
+	 * @since 5.3.5
+	 */
+	public static <T, R> List<R> map(Iterable<T> collection, Function<? super T, ? extends R> func, boolean ignoreNull) {
+		final List<R> fieldValueList = new ArrayList<>();
 		if (null == collection) {
 			return fieldValueList;
 		}
 
-		Object value;
-		for (Object bean : collection) {
-			value = editor.edit(bean);
+		R value;
+		for (T t : collection) {
+			if (null == t && ignoreNull) {
+				continue;
+			}
+			value = func.apply(t);
 			if (null == value && ignoreNull) {
 				continue;
 			}
@@ -1177,7 +1420,7 @@ public class CollUtil {
 	 * @since 4.5.7
 	 */
 	public static List<Object> getFieldValues(Iterable<?> collection, final String fieldName, boolean ignoreNull) {
-		return extract(collection, bean -> {
+		return map(collection, bean -> {
 			if (bean instanceof Map) {
 				return ((Map<?, ?>) bean).get(fieldName);
 			} else {
@@ -1200,6 +1443,36 @@ public class CollUtil {
 	public static <T> List<T> getFieldValues(Iterable<?> collection, final String fieldName, final Class<T> elementType) {
 		List<Object> fieldValues = getFieldValues(collection, fieldName);
 		return Convert.toList(elementType, fieldValues);
+	}
+
+	/**
+	 * 字段值与列表值对应的Map，常用于元素对象中有唯一ID时需要按照这个ID查找对象的情况<br>
+	 * 例如：车牌号 =》车
+	 *
+	 * @param <K>       字段名对应值得类型，不确定请使用Object
+	 * @param <V>       对象类型
+	 * @param iterable  对象列表
+	 * @param fieldName 字段名（会通过反射获取其值）
+	 * @return 某个字段值与对象对应Map
+	 * @since 5.0.6
+	 */
+	public static <K, V> Map<K, V> fieldValueMap(Iterable<V> iterable, String fieldName) {
+		return IterUtil.fieldValueMap(null == iterable ? null : iterable.iterator(), fieldName);
+	}
+
+	/**
+	 * 两个字段值组成新的Map
+	 *
+	 * @param <K>               字段名对应值得类型，不确定请使用Object
+	 * @param <V>               值类型，不确定使用Object
+	 * @param iterable          对象列表
+	 * @param fieldNameForKey   做为键的字段名（会通过反射获取其值）
+	 * @param fieldNameForValue 做为值的字段名（会通过反射获取其值）
+	 * @return 某个字段值与对象对应Map
+	 * @since 5.0.6
+	 */
+	public static <K, V> Map<K, V> fieldValueAsMap(Iterable<?> iterable, String fieldNameForKey, String fieldNameForValue) {
+		return IterUtil.fieldValueAsMap(null == iterable ? null : iterable.iterator(), fieldNameForKey, fieldNameForValue);
 	}
 
 	/**
@@ -1308,6 +1581,30 @@ public class CollUtil {
 			}
 		}
 		return count;
+	}
+
+	/**
+	 * 获取匹配规则定义中匹配到元素的所有位置<br>
+	 * 此方法对于某些无序集合的位置信息，以转换为数组后的位置为准。
+	 *
+	 * @param <T>        元素类型
+	 * @param collection 集合
+	 * @param matcher    匹配器，为空则全部匹配
+	 * @return 位置数组
+	 * @since 5.2.5
+	 */
+	public static <T> int[] indexOfAll(Collection<T> collection, Matcher<T> matcher) {
+		final List<Integer> indexList = new ArrayList<>();
+		if (null != collection) {
+			int index = 0;
+			for (T t : collection) {
+				if (null == matcher || matcher.match(t)) {
+					indexList.add(index);
+				}
+				index++;
+			}
+		}
+		return Convert.convert(int[].class, indexList);
 	}
 
 	// ---------------------------------------------------------------------- isEmpty
@@ -1500,7 +1797,7 @@ public class CollUtil {
 	 */
 	public static <K, V> Map<K, V> zip(Collection<K> keys, Collection<V> values) {
 		if (isEmpty(keys) || isEmpty(values)) {
-			return null;
+			return MapUtil.empty();
 		}
 
 		int entryCount = Math.min(keys.size(), values.size());
@@ -1574,7 +1871,7 @@ public class CollUtil {
 	/**
 	 * Iterator转换为Enumeration
 	 * <p>
-	 * Adapt the specified <code>Iterator</code> to the <code>Enumeration</code> interface.
+	 * Adapt the specified {@link Iterator} to the {@link Enumeration} interface.
 	 *
 	 * @param <E>  集合元素类型
 	 * @param iter {@link Iterator}
@@ -1587,7 +1884,7 @@ public class CollUtil {
 	/**
 	 * Enumeration转换为Iterator
 	 * <p>
-	 * Adapt the specified <code>Enumeration</code> to the <code>Iterator</code> interface
+	 * Adapt the specified {@code Enumeration} to the {@code Iterator} interface
 	 *
 	 * @param <E> 集合元素类型
 	 * @param e   {@link Enumeration}
@@ -1693,6 +1990,40 @@ public class CollUtil {
 	}
 
 	/**
+	 * 集合转换为Map，转换规则为：<br>
+	 * 按照keyFunc函数规则根据元素对象生成Key，元素作为值
+	 *
+	 * @param <K>     Map键类型
+	 * @param <V>     Map值类型
+	 * @param values  数据列表
+	 * @param map     Map对象，转换后的键值对加入此Map，通过传入此对象自定义Map类型
+	 * @param keyFunc 生成key的函数
+	 * @return 生成的map
+	 * @since 5.2.6
+	 */
+	public static <K, V> Map<K, V> toMap(Iterable<V> values, Map<K, V> map, Func1<V, K> keyFunc) {
+		return IterUtil.toMap(null == values ? null : values.iterator(), map, keyFunc);
+	}
+
+	/**
+	 * 集合转换为Map，转换规则为：<br>
+	 * 按照keyFunc函数规则根据元素对象生成Key，按照valueFunc函数规则根据元素对象生成value组成新的Map
+	 *
+	 * @param <K>       Map键类型
+	 * @param <V>       Map值类型
+	 * @param <E>       元素类型
+	 * @param values    数据列表
+	 * @param map       Map对象，转换后的键值对加入此Map，通过传入此对象自定义Map类型
+	 * @param keyFunc   生成key的函数
+	 * @param valueFunc 生成值的策略函数
+	 * @return 生成的map
+	 * @since 5.2.6
+	 */
+	public static <K, V, E> Map<K, V> toMap(Iterable<E> values, Map<K, V> map, Func1<E, K> keyFunc, Func1<E, V> valueFunc) {
+		return IterUtil.toMap(null == values ? null : values.iterator(), map, keyFunc, valueFunc);
+	}
+
+	/**
 	 * 将指定对象全部加入到集合中<br>
 	 * 提供的对象如果为集合类型，会自动转换为目标元素类型<br>
 	 *
@@ -1721,7 +2052,7 @@ public class CollUtil {
 		if (null == collection || null == value) {
 			return collection;
 		}
-		if (TypeUtil.isUnknow(elementType)) {
+		if (TypeUtil.isUnknown(elementType)) {
 			// 元素类型为空时，使用Object类型来接纳所有类型
 			elementType = Object.class;
 		}
@@ -1778,6 +2109,9 @@ public class CollUtil {
 	 * @return 原集合
 	 */
 	public static <T> Collection<T> addAll(Collection<T> collection, Iterable<T> iterable) {
+		if (iterable == null) {
+			return collection;
+		}
 		return addAll(collection, iterable.iterator());
 	}
 
@@ -1856,7 +2190,7 @@ public class CollUtil {
 		}
 
 		// 检查越界
-		if (index >= size) {
+		if (index >= size || index < 0) {
 			return null;
 		}
 
@@ -2219,6 +2553,21 @@ public class CollUtil {
 	// ------------------------------------------------------------------------------------------------- forEach
 
 	/**
+	 * 循环遍历 {@link Iterable}，使用{@link Consumer} 接受遍历的每条数据，并针对每条数据做处理
+	 *
+	 * @param <T>      集合元素类型
+	 * @param iterable {@link Iterable}
+	 * @param consumer {@link Consumer} 遍历的每条数据处理器
+	 * @since 5.4.7
+	 */
+	public static <T> void forEach(Iterable<T> iterable, Consumer<T> consumer) {
+		if(iterable == null){
+			return;
+		}
+		forEach(iterable.iterator(), consumer);
+	}
+
+	/**
 	 * 循环遍历 {@link Iterator}，使用{@link Consumer} 接受遍历的每条数据，并针对每条数据做处理
 	 *
 	 * @param <T>      集合元素类型
@@ -2226,6 +2575,9 @@ public class CollUtil {
 	 * @param consumer {@link Consumer} 遍历的每条数据处理器
 	 */
 	public static <T> void forEach(Iterator<T> iterator, Consumer<T> consumer) {
+		if(iterator == null){
+			return;
+		}
 		int index = 0;
 		while (iterator.hasNext()) {
 			consumer.accept(iterator.next(), index);
@@ -2241,6 +2593,9 @@ public class CollUtil {
 	 * @param consumer    {@link Consumer} 遍历的每条数据处理器
 	 */
 	public static <T> void forEach(Enumeration<T> enumeration, Consumer<T> consumer) {
+		if(enumeration == null){
+			return;
+		}
 		int index = 0;
 		while (enumeration.hasMoreElements()) {
 			consumer.accept(enumeration.nextElement(), index);
@@ -2249,7 +2604,8 @@ public class CollUtil {
 	}
 
 	/**
-	 * 循环遍历Map，使用{@link KVConsumer} 接受遍历的每条数据，并针对每条数据做处理
+	 * 循环遍历Map，使用{@link KVConsumer} 接受遍历的每条数据，并针对每条数据做处理<br>
+	 * 和JDK8中的map.forEach不同的是，此方法支持index
 	 *
 	 * @param <K>        Key类型
 	 * @param <V>        Value类型
@@ -2257,6 +2613,9 @@ public class CollUtil {
 	 * @param kvConsumer {@link KVConsumer} 遍历的每条数据处理器
 	 */
 	public static <K, V> void forEach(Map<K, V> map, KVConsumer<K, V> kvConsumer) {
+		if(map == null){
+			return;
+		}
 		int index = 0;
 		for (Entry<K, V> entry : map.entrySet()) {
 			kvConsumer.accept(entry.getKey(), entry.getValue(), index);
@@ -2422,11 +2781,11 @@ public class CollUtil {
 	}
 
 	/**
-	 * 取最大值
+	 * 取最小值
 	 *
 	 * @param <T>  元素类型
 	 * @param coll 集合
-	 * @return 最大值
+	 * @return 最小值
 	 * @see Collections#min(Collection)
 	 * @since 4.6.5
 	 */
@@ -2434,15 +2793,131 @@ public class CollUtil {
 		return Collections.min(coll);
 	}
 
+	/**
+	 * 转为只读集合
+	 *
+	 * @param <T> 元素类型
+	 * @param c   集合
+	 * @return 只读集合
+	 * @since 5.2.6
+	 */
+	public static <T> Collection<T> unmodifiable(Collection<? extends T> c) {
+		return Collections.unmodifiableCollection(c);
+	}
+
+	/**
+	 * 根据给定的集合类型，返回对应的空集合，支持类型包括：
+	 * *
+	 * <pre>
+	 *     1. NavigableSet
+	 *     2. SortedSet
+	 *     3. Set
+	 *     4. List
+	 * </pre>
+	 *
+	 * @param <E>             元素类型
+	 * @param <T>             集合类型
+	 * @param collectionClass 集合类型
+	 * @return 空集合
+	 * @since 5.3.1
+	 */
+	@SuppressWarnings("unchecked")
+	public static <E, T extends Collection<E>> T empty(Class<?> collectionClass) {
+		if (null == collectionClass) {
+			return (T) Collections.emptyList();
+		}
+
+		if (Set.class.isAssignableFrom(collectionClass)) {
+			if (NavigableSet.class == collectionClass) {
+				return (T) Collections.emptyNavigableSet();
+			} else if (SortedSet.class == collectionClass) {
+				return (T) Collections.emptySortedSet();
+			} else {
+				return (T) Collections.emptySet();
+			}
+		} else if (List.class.isAssignableFrom(collectionClass)) {
+			return (T) Collections.emptyList();
+		}
+
+		// 不支持空集合的集合类型
+		throw new IllegalArgumentException(StrUtil.format("[{}] is not support to get empty!", collectionClass));
+	}
+
+	/**
+	 * 清除一个或多个集合内的元素，每个集合调用clear()方法
+	 *
+	 * @param collections 一个或多个集合
+	 * @since 5.3.6
+	 */
+	public static void clear(Collection<?>... collections) {
+		for (Collection<?> collection : collections) {
+			if (isNotEmpty(collection)) {
+				collection.clear();
+			}
+		}
+	}
+
+	/**
+	 * 填充List，以达到最小长度
+	 *
+	 * @param <T>    集合元素类型
+	 * @param list   列表
+	 * @param minLen 最小长度
+	 * @param padObj 填充的对象
+	 * @since 5.3.10
+	 */
+	public static <T> void padLeft(List<T> list, int minLen, T padObj) {
+		Objects.requireNonNull(list);
+		if (list.isEmpty()) {
+			padRight(list, minLen, padObj);
+			return;
+		}
+		for (int i = list.size(); i < minLen; i++) {
+			list.add(0, padObj);
+		}
+	}
+
+	/**
+	 * 填充List，以达到最小长度
+	 *
+	 * @param <T>    集合元素类型
+	 * @param list   列表
+	 * @param minLen 最小长度
+	 * @param padObj 填充的对象
+	 * @since 5.3.10
+	 */
+	public static <T> void padRight(Collection<T> list, int minLen, T padObj) {
+		Objects.requireNonNull(list);
+		for (int i = list.size(); i < minLen; i++) {
+			list.add(padObj);
+		}
+	}
+
+	/**
+	 * 使用给定的转换函数，转换源集合为新类型的集合
+	 *
+	 * @param <F>        源元素类型
+	 * @param <T>        目标元素类型
+	 * @param collection 集合
+	 * @param function   转换函数
+	 * @return 新类型的集合
+	 * @since 5.4.3
+	 */
+	public static <F, T> Collection<T> trans(Collection<F> collection, Function<? super F, ? extends T> function) {
+		return new TransCollection<>(collection, function);
+	}
+
 	// ---------------------------------------------------------------------------------------------- Interface start
 
 	/**
-	 * 针对一个参数做相应的操作
+	 * 针对一个参数做相应的操作<br>
+	 * 此函数接口与JDK8中Consumer不同是多提供了index参数，用于标记遍历对象是第几个。
 	 *
 	 * @param <T> 处理参数类型
 	 * @author Looly
 	 */
-	public interface Consumer<T> {
+	@FunctionalInterface
+	public interface Consumer<T> extends Serializable {
 		/**
 		 * 接受并处理一个参数
 		 *
@@ -2459,7 +2934,8 @@ public class CollUtil {
 	 * @param <V> VALUE类型
 	 * @author Looly
 	 */
-	public interface KVConsumer<K, V> {
+	@FunctionalInterface
+	public interface KVConsumer<K, V> extends Serializable{
 		/**
 		 * 接受并处理一对参数
 		 *
@@ -2470,4 +2946,68 @@ public class CollUtil {
 		void accept(K key, V value, int index);
 	}
 	// ---------------------------------------------------------------------------------------------- Interface end
+
+	/**
+	 * 获取Collection或者iterator的大小，此方法可以处理的对象类型如下：
+	 * <ul>
+	 * <li>Collection - the collection size
+	 * <li>Map - the map size
+	 * <li>Array - the array size
+	 * <li>Iterator - the number of elements remaining in the iterator
+	 * <li>Enumeration - the number of elements remaining in the enumeration
+	 * </ul>
+	 *
+	 * @param object 可以为空的对象
+	 * @return 如果object为空则返回0
+	 * @throws IllegalArgumentException 参数object不是Collection或者iterator
+	 * @since 5.5.0
+	 */
+	public static int size(final Object object) {
+		if (object == null) {
+			return 0;
+		}
+
+		int total = 0;
+		if (object instanceof Map<?, ?>) {
+			total = ((Map<?, ?>) object).size();
+		} else if (object instanceof Collection<?>) {
+			total = ((Collection<?>) object).size();
+		} else if (object instanceof Iterable<?>) {
+			total = IterUtil.size((Iterable<?>) object);
+		} else if (object instanceof Iterator<?>) {
+			total = IterUtil.size((Iterator<?>) object);
+		} else if (object instanceof Enumeration<?>) {
+			final Enumeration<?> it = (Enumeration<?>) object;
+			while (it.hasMoreElements()) {
+				total++;
+				it.nextElement();
+			}
+		} else if (ArrayUtil.isArray(object)) {
+			total = ArrayUtil.length(object);
+		} else {
+			throw new IllegalArgumentException("Unsupported object type: " + object.getClass().getName());
+		}
+		return total;
+	}
+
+	/**
+	 * 判断两个{@link Collection} 是否元素和顺序相同，返回{@code true}的条件是：
+	 * <ul>
+	 *     <li>两个{@link Collection}必须长度相同</li>
+	 *     <li>两个{@link Collection}元素相同index的对象必须equals，满足{@link Objects#equals(Object, Object)}</li>
+	 * </ul>
+	 * 此方法来自Apache-Commons-Collections4。
+	 *
+	 * @param list1 列表1
+	 * @param list2 列表2
+	 * @return 是否相同
+	 * @since 5.6.0
+	 */
+	public static boolean isEqualList(final Collection<?> list1, final Collection<?> list2) {
+		if (list1 == null || list2 == null || list1.size() != list2.size()) {
+			return false;
+		}
+
+		return IterUtil.isEqualList(list1, list2);
+	}
 }

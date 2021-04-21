@@ -1,14 +1,15 @@
 package cn.hutool.db.sql;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Map.Entry;
-
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.lang.Editor;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.db.Entity;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map.Entry;
 
 /**
  * 包装器<br>
@@ -98,7 +99,7 @@ public class Wrapper {
 		
 		//对于Oracle这类数据库，表名中包含用户名需要单独拆分包装
 		if(field.contains(StrUtil.DOT)){
-			final Collection<String> target = CollectionUtil.filter(StrUtil.split(field, StrUtil.C_DOT), (Editor<String>) t -> StrUtil.format("{}{}{}", preWrapQuote, t, sufWrapQuote));
+			final Collection<String> target = CollUtil.filter(StrUtil.split(field, StrUtil.C_DOT, 2), (Editor<String>) t -> StrUtil.format("{}{}{}", preWrapQuote, t, sufWrapQuote));
 			return CollectionUtil.join(target, StrUtil.DOT);
 		}
 		
@@ -135,7 +136,7 @@ public class Wrapper {
 			return fields;
 		}
 		
-		return Arrays.asList(wrap(fields.toArray(new String[fields.size()])));
+		return Arrays.asList(wrap(fields.toArray(new String[0])));
 	}
 	
 	/**

@@ -17,10 +17,14 @@ import cn.hutool.core.date.TimeInterval;
  * @author kwer
  */
 public class ConcurrencyTester {
-	private SyncFinisher sf;
-	private TimeInterval timeInterval;
+	private final SyncFinisher sf;
+	private final TimeInterval timeInterval;
 	private long interval;
 
+	/**
+	 * 构造
+	 * @param threadSize 线程数
+	 */
 	public ConcurrencyTester(int threadSize) {
 		this.sf = new SyncFinisher(threadSize);
 		this.timeInterval = new TimeInterval();

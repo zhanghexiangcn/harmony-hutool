@@ -19,6 +19,7 @@ import cn.hutool.crypto.digest.MD5;
 import cn.hutool.crypto.symmetric.AES;
 import cn.hutool.crypto.symmetric.DES;
 import cn.hutool.crypto.symmetric.DESede;
+import cn.hutool.crypto.symmetric.PBKDF2;
 import cn.hutool.crypto.symmetric.RC4;
 import cn.hutool.crypto.symmetric.SymmetricCrypto;
 
@@ -48,9 +49,9 @@ import java.util.Map;
  * 2、非对称加密（asymmetric），例如：RSA、DSA等<br>
  * 3、摘要加密（digest），例如：MD5、SHA-1、SHA-256、HMAC等<br>
  *
- * @author xiaoleilu, Gsealy
+ * @author Looly, Gsealy
  */
-public final class SecureUtil {
+public class SecureUtil {
 
 	/**
 	 * 默认密钥字节数
@@ -626,7 +627,7 @@ public final class SecureUtil {
 	 * 创建HMac对象，调用digest方法可获得hmac值
 	 *
 	 * @param algorithm {@link HmacAlgorithm}
-	 * @param key       密钥，如果为<code>null</code>生成随机密钥
+	 * @param key       密钥，如果为{@code null}生成随机密钥
 	 * @return {@link HMac}
 	 * @since 3.3.0
 	 */
@@ -638,7 +639,7 @@ public final class SecureUtil {
 	 * 创建HMac对象，调用digest方法可获得hmac值
 	 *
 	 * @param algorithm {@link HmacAlgorithm}
-	 * @param key       密钥，如果为<code>null</code>生成随机密钥
+	 * @param key       密钥，如果为{@code null}生成随机密钥
 	 * @return {@link HMac}
 	 * @since 3.0.3
 	 */
@@ -650,7 +651,7 @@ public final class SecureUtil {
 	 * 创建HMac对象，调用digest方法可获得hmac值
 	 *
 	 * @param algorithm {@link HmacAlgorithm}
-	 * @param key       密钥{@link SecretKey}，如果为<code>null</code>生成随机密钥
+	 * @param key       密钥{@link SecretKey}，如果为{@code null}生成随机密钥
 	 * @return {@link HMac}
 	 * @since 3.0.3
 	 */
@@ -664,7 +665,7 @@ public final class SecureUtil {
 	 * HmacMD5加密：hmacMd5(key).digest(data)<br>
 	 * HmacMD5加密并转为16进制字符串：hmacMd5(key).digestHex(data)<br>
 	 *
-	 * @param key 加密密钥，如果为<code>null</code>生成随机密钥
+	 * @param key 加密密钥，如果为{@code null}生成随机密钥
 	 * @return {@link HMac}
 	 * @since 3.3.0
 	 */
@@ -678,7 +679,7 @@ public final class SecureUtil {
 	 * HmacMD5加密：hmacMd5(key).digest(data)<br>
 	 * HmacMD5加密并转为16进制字符串：hmacMd5(key).digestHex(data)<br>
 	 *
-	 * @param key 加密密钥，如果为<code>null</code>生成随机密钥
+	 * @param key 加密密钥，如果为{@code null}生成随机密钥
 	 * @return {@link HMac}
 	 */
 	public static HMac hmacMd5(byte[] key) {
@@ -703,7 +704,7 @@ public final class SecureUtil {
 	 * HmacSHA1加密：hmacSha1(key).digest(data)<br>
 	 * HmacSHA1加密并转为16进制字符串：hmacSha1(key).digestHex(data)<br>
 	 *
-	 * @param key 加密密钥，如果为<code>null</code>生成随机密钥
+	 * @param key 加密密钥，如果为{@code null}生成随机密钥
 	 * @return {@link HMac}
 	 * @since 3.3.0
 	 */
@@ -717,7 +718,7 @@ public final class SecureUtil {
 	 * HmacSHA1加密：hmacSha1(key).digest(data)<br>
 	 * HmacSHA1加密并转为16进制字符串：hmacSha1(key).digestHex(data)<br>
 	 *
-	 * @param key 加密密钥，如果为<code>null</code>生成随机密钥
+	 * @param key 加密密钥，如果为{@code null}生成随机密钥
 	 * @return {@link HMac}
 	 */
 	public static HMac hmacSha1(byte[] key) {
@@ -734,6 +735,47 @@ public final class SecureUtil {
 	 */
 	public static HMac hmacSha1() {
 		return new HMac(HmacAlgorithm.HmacSHA1);
+	}
+
+	/**
+	 * HmacSHA256加密器<br>
+	 * 例：<br>
+	 * HmacSHA256加密：hmacSha256(key).digest(data)<br>
+	 * HmacSHA256加密并转为16进制字符串：hmacSha256(key).digestHex(data)<br>
+	 *
+	 * @param key 加密密钥，如果为{@code null}生成随机密钥
+	 * @return {@link HMac}
+	 * @since 5.6.0
+	 */
+	public static HMac hmacSha256(String key) {
+		return hmacSha256(StrUtil.utf8Bytes(key));
+	}
+
+	/**
+	 * HmacSHA256加密器<br>
+	 * 例：<br>
+	 * HmacSHA256加密：hmacSha256(key).digest(data)<br>
+	 * HmacSHA256加密并转为16进制字符串：hmacSha256(key).digestHex(data)<br>
+	 *
+	 * @param key 加密密钥，如果为{@code null}生成随机密钥
+	 * @return {@link HMac}
+	 * @since 5.6.0
+	 */
+	public static HMac hmacSha256(byte[] key) {
+		return new HMac(HmacAlgorithm.HmacSHA256, key);
+	}
+
+	/**
+	 * HmacSHA256加密器，生成随机KEY<br>
+	 * 例：<br>
+	 * HmacSHA256加密：hmacSha256().digest(data)<br>
+	 * HmacSHA256加密并转为16进制字符串：hmacSha256().digestHex(data)<br>
+	 *
+	 * @return {@link HMac}
+	 * @since 5.6.0
+	 */
+	public static HMac hmacSha256() {
+		return new HMac(HmacAlgorithm.HmacSHA256);
 	}
 
 	// ------------------------------------------------------------------- 非称加密算法
@@ -1047,5 +1089,17 @@ public final class SecureUtil {
 	 */
 	public static void disableBouncyCastle() {
 		GlobalBouncyCastleProvider.setUseBouncyCastle(false);
+	}
+
+	/**
+	 * PBKDF2加密密码
+	 *
+	 * @param password 密码
+	 * @param salt 盐
+	 * @return 盐，一般为16位
+	 * @since 5.6.0
+	 */
+	public static String pbkdf2(char[] password, byte[] salt){
+		return new PBKDF2().encryptHex(password, salt);
 	}
 }

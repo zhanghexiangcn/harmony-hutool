@@ -18,6 +18,13 @@ import java.util.List;
 /**
  * 数据库元数据信息工具类
  *
+ * <p>
+ * 需要注意的是，此工具类在某些数据库（比如Oracle）下无效，此时需要手动在数据库配置中增加：
+ * <pre>
+ *  remarks = true
+ *  useInformationSchema = true
+ * </pre>
+ *
  * @author looly
  */
 public class MetaUtil {
@@ -144,7 +151,7 @@ public class MetaUtil {
 					}
 				}
 			}
-			return columnNames.toArray(new String[columnNames.size()]);
+			return columnNames.toArray(new String[0]);
 		} catch (Exception e) {
 			throw new DbRuntimeException("Get columns error!", e);
 		} finally {
@@ -172,7 +179,6 @@ public class MetaUtil {
 	 * @param tableName 表名
 	 * @return Table对象
 	 */
-	@SuppressWarnings("resource")
 	public static Table getTableMeta(DataSource ds, String tableName) {
 		final Table table = Table.create(tableName);
 		Connection conn = null;
@@ -180,8 +186,10 @@ public class MetaUtil {
 			conn = ds.getConnection();
 
 			// catalog和schema获取失败默认使用null代替
-			String catalog = getCataLog(conn);
-			String schema = getSchema(conn);
+			final String catalog = getCataLog(conn);
+			table.setCatalog(catalog);
+			final String schema = getSchema(conn);
+			table.setSchema(schema);
 
 			final DatabaseMetaData metaData = conn.getMetaData();
 
@@ -207,7 +215,7 @@ public class MetaUtil {
 			try (ResultSet rs = metaData.getColumns(catalog, schema, tableName, null)) {
 				if (null != rs) {
 					while (rs.next()) {
-						table.setColumn(Column.create(tableName, rs));
+						table.setColumn(Column.create(table, rs));
 					}
 				}
 			}

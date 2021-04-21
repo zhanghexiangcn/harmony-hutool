@@ -1,16 +1,18 @@
 package cn.hutool.extra.mail;
 
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.io.IoUtil;
+import cn.hutool.core.map.MapUtil;
+import cn.hutool.core.util.StrUtil;
+
+import javax.mail.Authenticator;
+import javax.mail.Session;
 import java.io.File;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.io.IoUtil;
-import cn.hutool.core.map.MapUtil;
-import cn.hutool.core.util.StrUtil;
 
 /**
  * 邮件工具类，基于javax.mail封装
@@ -346,6 +348,24 @@ public class MailUtil {
 		return send(mailAccount, false, tos, ccs, bccs, subject, content, imageMap, isHtml, files);
 	}
 
+	/**
+	 * 根据配置文件，获取邮件客户端会话
+	 *
+	 * @param mailAccount 邮件账户配置
+	 * @param isSingleton 是否单例（全局共享会话）
+	 * @return {@link Session}
+	 * @since 5.5.7
+	 */
+	public static Session getSession(MailAccount mailAccount, boolean isSingleton){
+		Authenticator authenticator = null;
+		if (mailAccount.isAuth()) {
+			authenticator = new UserPassAuthenticator(mailAccount.getUser(), mailAccount.getPass());
+		}
+
+		return isSingleton ? Session.getDefaultInstance(mailAccount.getSmtpProps(), authenticator) //
+				: Session.getInstance(mailAccount.getSmtpProps(), authenticator);
+	}
+
 	// ------------------------------------------------------------------------------------------------------------------------ Private method start
 
 	/**
@@ -370,14 +390,14 @@ public class MailUtil {
 
 		// 可选抄送人
 		if (CollUtil.isNotEmpty(ccs)) {
-			mail.setCcs(ccs.toArray(new String[ccs.size()]));
+			mail.setCcs(ccs.toArray(new String[0]));
 		}
 		// 可选密送人
 		if (CollUtil.isNotEmpty(bccs)) {
-			mail.setBccs(bccs.toArray(new String[bccs.size()]));
+			mail.setBccs(bccs.toArray(new String[0]));
 		}
 
-		mail.setTos(tos.toArray(new String[tos.size()]));
+		mail.setTos(tos.toArray(new String[0]));
 		mail.setTitle(subject);
 		mail.setContent(content);
 		mail.setHtml(isHtml);

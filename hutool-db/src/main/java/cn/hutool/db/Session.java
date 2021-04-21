@@ -1,13 +1,5 @@
 package cn.hutool.db;
 
-import java.io.Closeable;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Savepoint;
-
-import javax.sql.DataSource;
-
-import cn.hutool.core.lang.func.VoidFunc0;
 import cn.hutool.core.lang.func.VoidFunc1;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.db.dialect.Dialect;
@@ -16,6 +8,12 @@ import cn.hutool.db.ds.DSFactory;
 import cn.hutool.db.sql.Wrapper;
 import cn.hutool.log.Log;
 import cn.hutool.log.LogFactory;
+
+import javax.sql.DataSource;
+import java.io.Closeable;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Savepoint;
 
 /**
  * 数据库SQL执行会话<br>
@@ -33,7 +31,7 @@ public class Session extends AbstractDb implements Closeable {
 	/**
 	 * 创建默认数据源会话
 	 * 
-	 * @return {@link Session}
+	 * @return Session
 	 * @since 3.2.3
 	 */
 	public static Session create() {
@@ -44,7 +42,7 @@ public class Session extends AbstractDb implements Closeable {
 	 * 创建会话
 	 * 
 	 * @param group 分组
-	 * @return {@link Session}
+	 * @return Session
 	 * @since 4.0.11
 	 */
 	public static Session create(String group) {
@@ -55,7 +53,7 @@ public class Session extends AbstractDb implements Closeable {
 	 * 创建会话
 	 * 
 	 * @param ds 数据源
-	 * @return {@link Session}
+	 * @return Session
 	 */
 	public static Session create(DataSource ds) {
 		return new Session(ds);
@@ -246,7 +244,7 @@ public class Session extends AbstractDb implements Closeable {
 	}
 	
 	/**
-	 * 在事务中执行操作，通过实现{@link VoidFunc0}接口的call方法执行多条SQL语句从而完成事务
+	 * 在事务中执行操作，通过实现{@link VoidFunc1}接口的call方法执行多条SQL语句从而完成事务
 	 * 
 	 * @param func 函数抽象，在函数中执行多个SQL操作，多个操作会被合并为同一事务
 	 * @throws SQLException SQL异常
@@ -264,7 +262,7 @@ public class Session extends AbstractDb implements Closeable {
 	}
 
 	/**
-	 * 在事务中执行操作，通过实现{@link VoidFunc0}接口的call方法执行多条SQL语句从而完成事务
+	 * 在事务中执行操作，通过实现{@link VoidFunc1}接口的call方法执行多条SQL语句从而完成事务
 	 * 
 	 * @param func 函数抽象，在函数中执行多个SQL操作，多个操作会被合并为同一事务
 	 * @since 3.2.3

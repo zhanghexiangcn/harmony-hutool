@@ -18,8 +18,8 @@ public class CronPatternTest {
 		CronPattern pattern;
 		// 任何时间匹配
 		pattern = new CronPattern("* * * * * *");
-		Assert.assertTrue(pattern.match(DateUtil.current(false), true));
-		Assert.assertTrue(pattern.match(DateUtil.current(false), false));
+		Assert.assertTrue(pattern.match(DateUtil.current(), true));
+		Assert.assertTrue(pattern.match(DateUtil.current(), false));
 	}
 	
 	@Test
@@ -30,7 +30,7 @@ public class CronPatternTest {
 		// 任何时间匹配
 		pattern = new CronPattern("* * * * *");
 		for(int i = 0; i < 1; i++) {
-			Assert.assertTrue(pattern.match(DateUtil.current(false), false));
+			Assert.assertTrue(pattern.match(DateUtil.current(), false));
 		}
 	}
 
@@ -123,6 +123,22 @@ public class CronPatternTest {
 		assertMatch(pattern, "2017-02-09 04:02:00");
 		assertMatch(pattern, "2017-02-09 05:04:00");
 		assertMatch(pattern, "2017-02-19 04:20:33");
+	}
+
+	@Test
+	public void lastTest() {
+		// 每月最后一天的任意时间
+		CronPattern pattern = new CronPattern("* * * L * ?");
+		assertMatch(pattern, "2017-07-31 04:20:00");
+		assertMatch(pattern, "2017-02-28 04:20:00");
+
+		// 最后一个月的任意时间
+		pattern = new CronPattern("* * * * L ?");
+		assertMatch(pattern, "2017-12-02 04:20:00");
+
+		// 任意天的最后时间
+		pattern = new CronPattern("L L L * * ?");
+		assertMatch(pattern, "2017-12-02 23:59:59");
 	}
 
 	@Test(expected = CronException.class)

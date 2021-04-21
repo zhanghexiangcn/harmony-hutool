@@ -5,13 +5,14 @@ import cn.hutool.core.exceptions.UtilException;
 import cn.hutool.core.io.IORuntimeException;
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.lang.Filter;
-import cn.hutool.core.lang.Validator;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.net.DatagramSocket;
+import java.net.HttpCookie;
 import java.net.IDN;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -27,8 +28,10 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -40,6 +43,8 @@ import java.util.TreeSet;
 public class NetUtil {
 
 	public final static String LOCAL_IP = "127.0.0.1";
+
+	public static String localhostName;
 
 	/**
 	 * 默认最小端口，1024
@@ -55,19 +60,10 @@ public class NetUtil {
 	 *
 	 * @param longIP IP的long表示形式
 	 * @return IP V4 地址
+	 * @see Ipv4Util#longToIpv4(long)
 	 */
 	public static String longToIpv4(long longIP) {
-		final StringBuilder sb = StrUtil.builder();
-		// 直接右移24位
-		sb.append((longIP >>> 24));
-		sb.append(".");
-		// 将高8位置0，然后右移16位
-		sb.append(((longIP & 0x00FFFFFF) >>> 16));
-		sb.append(".");
-		sb.append(((longIP & 0x0000FFFF) >>> 8));
-		sb.append(".");
-		sb.append((longIP & 0x000000FF));
-		return sb.toString();
+		return Ipv4Util.longToIpv4(longIP);
 	}
 
 	/**
@@ -75,22 +71,43 @@ public class NetUtil {
 	 *
 	 * @param strIP IP V4 地址
 	 * @return long值
+	 * @see Ipv4Util#ipv4ToLong(String)
 	 */
 	public static long ipv4ToLong(String strIP) {
-		if (Validator.isIpv4(strIP)) {
-			long[] ip = new long[4];
-			// 先找到IP地址字符串中.的位置
-			int position1 = strIP.indexOf(".");
-			int position2 = strIP.indexOf(".", position1 + 1);
-			int position3 = strIP.indexOf(".", position2 + 1);
-			// 将每个.之间的字符串转换成整型
-			ip[0] = Long.parseLong(strIP.substring(0, position1));
-			ip[1] = Long.parseLong(strIP.substring(position1 + 1, position2));
-			ip[2] = Long.parseLong(strIP.substring(position2 + 1, position3));
-			ip[3] = Long.parseLong(strIP.substring(position3 + 1));
-			return (ip[0] << 24) + (ip[1] << 16) + (ip[2] << 8) + ip[3];
+		return Ipv4Util.ipv4ToLong(strIP);
+	}
+
+	/**
+	 * 将IPv6地址字符串转为大整数
+	 *
+	 * @param IPv6Str 字符串
+	 * @return 大整数, 如发生异常返回 null
+	 * @since 5.5.7
+	 */
+	public static BigInteger ipv6ToBitInteger(String IPv6Str) {
+		try {
+			InetAddress address = InetAddress.getByName(IPv6Str);
+			if (address instanceof Inet6Address) {
+				return new BigInteger(1, address.getAddress());
+			}
+		} catch (UnknownHostException ignore) {
 		}
-		return 0;
+		return null;
+	}
+
+	/**
+	 * 将大整数转换成ipv6字符串
+	 *
+	 * @param bigInteger 大整数
+	 * @return IPv6字符串, 如发生异常返回 null
+	 * @since 5.5.7
+	 */
+	public static String bigIntegerToIPv6(BigInteger bigInteger) {
+		try {
+			return InetAddress.getByAddress(bigInteger.toByteArray()).toString().substring(1);
+		} catch (UnknownHostException ignore) {
+			return null;
+		}
 	}
 
 	/**
@@ -313,7 +330,7 @@ public class NetUtil {
 	 * 获取指定名称的网卡信息
 	 *
 	 * @param name 网络接口名，例如Linux下默认是eth0
-	 * @return 网卡，未找到返回<code>null</code>
+	 * @return 网卡，未找到返回{@code null}
 	 * @since 5.0.7
 	 */
 	public static NetworkInterface getNetworkInterface(String name) {
@@ -338,7 +355,7 @@ public class NetUtil {
 	/**
 	 * 获取本机所有网卡
 	 *
-	 * @return 所有网卡，异常返回<code>null</code>
+	 * @return 所有网卡，异常返回{@code null}
 	 * @since 3.0.1
 	 */
 	public static Collection<NetworkInterface> getNetworkInterfaces() {
@@ -442,11 +459,11 @@ public class NetUtil {
 	/**
 	 * 获取本机网卡IP地址，这个地址为所有网卡中非回路地址的第一个<br>
 	 * 如果获取失败调用 {@link InetAddress#getLocalHost()}方法获取。<br>
-	 * 此方法不会抛出异常，获取失败将返回<code>null</code><br>
+	 * 此方法不会抛出异常，获取失败将返回{@code null}<br>
 	 * <p>
 	 * 参考：http://stackoverflow.com/questions/9481865/getting-the-ip-address-of-the-current-machine-using-java
 	 *
-	 * @return 本机网卡IP地址，获取失败返回<code>null</code>
+	 * @return 本机网卡IP地址，获取失败返回{@code null}
 	 * @since 3.0.7
 	 */
 	public static String getLocalhostStr() {
@@ -465,11 +482,11 @@ public class NetUtil {
 	 * 2. 如果无满足要求的地址，调用 {@link InetAddress#getLocalHost()} 获取地址
 	 * </pre>
 	 * <p>
-	 * 此方法不会抛出异常，获取失败将返回<code>null</code><br>
+	 * 此方法不会抛出异常，获取失败将返回{@code null}<br>
 	 * <p>
 	 * 见：https://github.com/looly/hutool/issues/428
 	 *
-	 * @return 本机网卡IP地址，获取失败返回<code>null</code>
+	 * @return 本机网卡IP地址，获取失败返回{@code null}
 	 * @since 3.0.1
 	 */
 	public static InetAddress getLocalhost() {
@@ -526,9 +543,12 @@ public class NetUtil {
 			return null;
 		}
 
-		byte[] mac;
+		byte[] mac = null;
 		try {
-			mac = NetworkInterface.getByInetAddress(inetAddress).getHardwareAddress();
+			final NetworkInterface networkInterface = NetworkInterface.getByInetAddress(inetAddress);
+			if (null != networkInterface) {
+				mac = networkInterface.getHardwareAddress();
+			}
 		} catch (SocketException e) {
 			throw new UtilException(e);
 		}
@@ -545,7 +565,31 @@ public class NetUtil {
 			}
 			return sb.toString();
 		}
+
 		return null;
+	}
+
+	/**
+	 * 获取主机名称，一次获取会缓存名称
+	 *
+	 * @return 主机名称
+	 * @since 5.4.4
+	 */
+	public static String getLocalHostName() {
+		if (StrUtil.isNotBlank(localhostName)) {
+			return localhostName;
+		}
+
+		final InetAddress localhost = getLocalhost();
+		if (null != localhost) {
+			String name = localhost.getHostName();
+			if (StrUtil.isEmpty(name)) {
+				name = localhost.getHostAddress();
+			}
+			localhostName = name;
+		}
+
+		return localhostName;
 	}
 
 	/**
@@ -647,7 +691,7 @@ public class NetUtil {
 		if (ip != null && ip.indexOf(",") > 0) {
 			final String[] ips = ip.trim().split(",");
 			for (String subIp : ips) {
-				if (false == isUnknow(subIp)) {
+				if (false == isUnknown(subIp)) {
 					ip = subIp;
 					break;
 				}
@@ -662,8 +706,21 @@ public class NetUtil {
 	 * @param checkString 被检测的字符串
 	 * @return 是否未知
 	 * @since 4.4.1
+	 * @deprecated 拼写错误，请使用{@link #isUnknown(String)}
 	 */
+	@Deprecated
 	public static boolean isUnknow(String checkString) {
+		return isUnknown(checkString);
+	}
+
+	/**
+	 * 检测给定字符串是否为未知，多用于检测HTTP请求相关<br>
+	 *
+	 * @param checkString 被检测的字符串
+	 * @return 是否未知
+	 * @since 5.2.6
+	 */
+	public static boolean isUnknown(String checkString) {
 		return StrUtil.isBlank(checkString) || "unknown".equalsIgnoreCase(checkString);
 	}
 
@@ -692,6 +749,36 @@ public class NetUtil {
 		}
 	}
 
+	/**
+	 * 解析Cookie信息
+	 *
+	 * @param cookieStr Cookie字符串
+	 * @return cookie字符串
+	 * @since 5.2.6
+	 */
+	public static List<HttpCookie> parseCookies(String cookieStr) {
+		if (StrUtil.isBlank(cookieStr)) {
+			return Collections.emptyList();
+		}
+		return HttpCookie.parse(cookieStr);
+	}
+
+	/**
+	 * 检查远程端口是否开启
+	 *
+	 * @param address 远程地址
+	 * @param timeout 检测超时
+	 * @return 远程端口是否开启
+	 * @since 5.3.2
+	 */
+	public static boolean isOpen(InetSocketAddress address, int timeout) {
+		try (Socket sc = new Socket()) {
+			sc.connect(address, timeout);
+			return true;
+		} catch (Exception e) {
+			return false;
+		}
+	}
 	// ----------------------------------------------------------------------------------------- Private method start
 
 	/**

@@ -1,14 +1,7 @@
 package cn.hutool.extra.template;
 
-import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
-
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
-
 import cn.hutool.core.lang.Dict;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.extra.template.TemplateConfig.ResourceMode;
 import cn.hutool.extra.template.engine.beetl.BeetlEngine;
 import cn.hutool.extra.template.engine.enjoy.EnjoyEngine;
@@ -16,10 +9,18 @@ import cn.hutool.extra.template.engine.freemarker.FreemarkerEngine;
 import cn.hutool.extra.template.engine.rythm.RythmEngine;
 import cn.hutool.extra.template.engine.thymeleaf.ThymeleafEngine;
 import cn.hutool.extra.template.engine.velocity.VelocityEngine;
+import cn.hutool.extra.template.engine.wit.WitEngine;
+import org.junit.Assert;
+import org.junit.Ignore;
+import org.junit.Test;
+
+import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 模板引擎单元测试
- * 
+ *
  * @author looly
  *
  */
@@ -78,7 +79,7 @@ public class TemplateUtilTest {
 		Template template = engine.getTemplate("hello,${name}");
 		String result = template.render(Dict.create().set("name", "hutool"));
 		Assert.assertEquals("hello,hutool", result);
-		
+
 		//ClassPath模板
 		engine = TemplateUtil.createEngine(
 				new TemplateConfig("templates", ResourceMode.CLASSPATH).setCustomEngine(FreemarkerEngine.class));
@@ -86,7 +87,7 @@ public class TemplateUtilTest {
 		result = template.render(Dict.create().set("name", "hutool"));
 		Assert.assertEquals("hello,hutool", result);
 	}
-	
+
 	@Test
 	public void velocityEngineTest() {
 		// 字符串模板
@@ -95,14 +96,17 @@ public class TemplateUtilTest {
 		Template template = engine.getTemplate("你好,$name");
 		String result = template.render(Dict.create().set("name", "hutool"));
 		Assert.assertEquals("你好,hutool", result);
-		
+
 		//ClassPath模板
 		engine = TemplateUtil.createEngine(
 				new TemplateConfig("templates", ResourceMode.CLASSPATH).setCustomEngine(VelocityEngine.class));
+		template = engine.getTemplate("velocity_test.vtl");
+		result = template.render(Dict.create().set("name", "hutool"));
+		Assert.assertEquals("你好,hutool", result);
+
 		template = engine.getTemplate("templates/velocity_test.vtl");
 		result = template.render(Dict.create().set("name", "hutool"));
 		Assert.assertEquals("你好,hutool", result);
-		
 	}
 
 	@Test
@@ -130,7 +134,7 @@ public class TemplateUtilTest {
 		Template template = engine.getTemplate("<h3 th:text=\"${message}\"></h3>");
 		String result = template.render(Dict.create().set("message", "Hutool"));
 		Assert.assertEquals("<h3>Hutool</h3>", result);
-		
+
 		//ClassPath模板
 		engine = TemplateUtil.createEngine(
 				new TemplateConfig("templates", ResourceMode.CLASSPATH).setCustomEngine(ThymeleafEngine.class));
@@ -138,7 +142,7 @@ public class TemplateUtilTest {
 		result = template.render(Dict.create().set("message", "Hutool"));
 		Assert.assertEquals("<h3>Hutool</h3>", result);
 	}
-	
+
 	@Test
 	@Ignore
 	public void renderToFileTest() {
@@ -149,5 +153,24 @@ public class TemplateUtilTest {
 		bindingMap.put("name", "aa");
 		File outputFile = new File("e:/test.txt");
 		template.render(bindingMap, outputFile);
+	}
+
+	@Test
+	public void WitEngineTest() {
+		//classpath模板
+		TemplateConfig config = new TemplateConfig("templates", ResourceMode.CLASSPATH)
+				.setCustomEngine(WitEngine.class);
+		TemplateEngine engine = TemplateUtil.createEngine(config);
+		Template template = engine.getTemplate("/wit_test.wit");
+		String result = template.render(Dict.create().set("name", "hutool"));
+		Assert.assertEquals("hello,hutool", StrUtil.trim(result));
+
+		// 字符串模板
+		config = new TemplateConfig("templates", ResourceMode.STRING)
+				.setCustomEngine(WitEngine.class);
+		engine = TemplateUtil.createEngine(config);
+		template = engine.getTemplate("<%var name;%>hello,${name}");
+		result = template.render(Dict.create().set("name", "hutool"));
+		Assert.assertEquals("hello,hutool", StrUtil.trim(result));
 	}
 }

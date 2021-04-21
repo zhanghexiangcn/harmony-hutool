@@ -74,7 +74,7 @@ public class TreeUtil {
 
 		List<Tree<E>> finalTreeList = CollUtil.newArrayList();
 		for (Tree<E> node : treeList) {
-			if (parentId.equals(node.getParentId())) {
+			if (ObjectUtil.equals(parentId,node.getParentId())) {
 				finalTreeList.add(node);
 				innerBuild(treeList, node, 0, treeNodeConfig.getDeep());
 			}
@@ -121,7 +121,7 @@ public class TreeUtil {
 
 	/**
 	 * 获取ID对应的节点，如果有多个ID相同的节点，只返回第一个。<br>
-	 * 此方法只查找此节点及子节点，采用广度优先遍历。
+	 * 此方法只查找此节点及子节点，采用递归深度优先遍历。
 	 *
 	 * @param <T> ID类型
 	 * @param node 节点
@@ -134,9 +134,14 @@ public class TreeUtil {
 			return node;
 		}
 
+		final List<Tree<T>> children = node.getChildren();
+		if(null == children) {
+			return null;
+		}
+		
 		// 查找子节点
 		Tree<T> childNode;
-		for (Tree<T> child : node.getChildren()) {
+		for (Tree<T> child : children) {
 			childNode = child.getNode(id);
 			if (null != childNode) {
 				return childNode;
